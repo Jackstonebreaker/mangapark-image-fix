@@ -1,6 +1,6 @@
 # Contribuer
 
-Merci de vouloir contribuer !
+Merci de vouloir contribuer ! Ce guide est écrit pour un workflow GitHub “classique”.
 
 ## Pré-requis
 
@@ -9,7 +9,8 @@ Merci de vouloir contribuer !
 
 ## Workflow
 
-1. **Fork** le dépôt.
+1. (Optionnel) Ouvre d’abord une **issue** (bug/feature) pour valider l’approche.
+2. **Fork** le dépôt.
 2. Crée une branche :
    - `feat/<courte-description>` pour une fonctionnalité
    - `fix/<courte-description>` pour un bug
@@ -26,6 +27,7 @@ Merci de vouloir contribuer !
 - Une PR = un sujet (évite les PR “fourre-tout”).
 - Ajoute/maintient des tests quand c’est pertinent (`tests/`).
 - Documente tout changement de comportement (README/CHANGELOG).
+- Si tu touches à l’UI, ajoute des captures “avant/après” dans la PR.
 
 ## Signaler un bug / proposer une amélioration
 

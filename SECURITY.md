@@ -1,21 +1,22 @@
-# Security Policy
+# Politique de sécurité
 
-## Supported Versions
+## Versions supportées
 
-Ce projet est maintenu sur la branche `main`. Les correctifs de sécurité sont publiés via des releases GitHub.
+Ce projet est maintenu sur la branche `main`.
 
-## Reporting a Vulnerability
+Les correctifs de sécurité sont publiés via **releases GitHub** (et documentés dans `CHANGELOG.md`).
+
+## Signaler une vulnérabilité
 
 Merci de **ne pas** ouvrir d’issue publique pour une vulnérabilité.
 
-À la place :
+### Canal recommandé (privé)
 
-1. Ouvre une **Security Advisory** via GitHub (“Report a vulnerability”) sur le dépôt.
-2. Sinon, contacte le mainteneur via le profil GitHub.
+Ouvre une **Security Advisory** GitHub (“Report a vulnerability”) sur le dépôt.
 
-Inclure idéalement :
+### Informations à fournir
 
-- Description et impact
+- Description du problème et impact
 - Étapes de reproduction
 - Version/commit concerné
 - POC (si possible) et/ou logs

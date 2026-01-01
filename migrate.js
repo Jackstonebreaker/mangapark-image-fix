@@ -22,11 +22,16 @@
   const MD_MATCH_STATE_KEY = "md_match_state";
   const MD_MATCH_RESULTS_KEY = "md_match_results";
   const MD_MATCH_CANCEL_KEY = "md_match_cancel";
+  // MangaDex advanced auth (opt-in)
+  const MD_AUTH_SETTINGS_KEY = "md_auth_settings"; // local
+  const MD_FOLLOW_CANCEL_KEY = "md_follow_cancel";
+  const MD_FOLLOW_SETTINGS_KEY = "md_follow_settings"; // local: { threshold, noOpenAfterFollow }
 
   const MD_API_BASE = "https://api.mangadex.org";
   const MD_SITE_BASE = "https://mangadex.org";
   const MD_MATCH_MIN_SCORE = 0.72;
   const MD_THROTTLE_MS = 500; // keep it gentle for a public extension
+  const MD_FOLLOW_THROTTLE_MS = 800;
 
   const DEFAULT_MIGRATE_STATE = {
     index: 0,
@@ -224,6 +229,7 @@
   /** @type {any[]|null} */
   let mdMatchResults = null;
   let mdMatchRunning = false;
+  let mdFollowRunning = false;
 
   function clampIndex(i) {
     if (!items.length) return 0;
@@ -316,17 +322,305 @@
     panel.style.display = visible ? "block" : "none";
   }
 
+  function setMdFollowUiVisible(visible) {
+    const panel = document.getElementById("mdAutoFollowPanel");
+    if (!panel) return;
+    panel.style.display = visible ? "block" : "none";
+  }
+
+  function setMdAuthStatusText(text) {
+    const el = document.getElementById("mdAuthStatus");
+    if (el) el.textContent = String(text || "-");
+  }
+
+  function setMdFollowProgressText(text) {
+    const el = document.getElementById("mdFollowProgressText");
+    if (el) el.textContent = String(text || "-");
+  }
+
+  function runtimeSendMessage(message) {
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage(message, (resp) => {
+          const err = getChromeLastErrorMessage();
+          if (err) return resolve({ ok: false, error: err });
+          resolve(resp || null);
+        });
+      } catch (e) {
+        resolve({ ok: false, error: String(e) });
+      }
+    });
+  }
+
+  async function mdSaveAuthSettingsLocal({ clientId, clientSecret, username }) {
+    await runtimeSendMessage({
+      type: "MD_AUTH_SAVE_SETTINGS",
+      clientId: String(clientId || ""),
+      clientSecret: String(clientSecret || ""),
+      username: String(username || ""),
+    });
+  }
+
+  async function mdAuthStatus() {
+    const resp = await runtimeSendMessage({ type: "MD_AUTH_STATUS" });
+    if (!resp || resp.ok !== true) return { connected: false, error: resp?.error || "unknown" };
+    return { connected: !!resp.connected, expiresAtIso: resp.expiresAtIso || "" };
+  }
+
+  async function mdAuthLogin({ clientId, clientSecret, username, password }) {
+    const resp = await runtimeSendMessage({
+      type: "MD_AUTH_LOGIN_PASSWORD",
+      clientId: String(clientId || ""),
+      clientSecret: String(clientSecret || ""),
+      username: String(username || ""),
+      password: String(password || ""),
+    });
+    if (!resp || resp.ok !== true) throw new Error(resp?.error || "login_failed");
+    return resp;
+  }
+
+  async function mdAuthLogout() {
+    await runtimeSendMessage({ type: "MD_AUTH_LOGOUT" });
+  }
+
+  async function mdFollow(mangaId) {
+    const resp = await runtimeSendMessage({ type: "MD_FOLLOW", mangaId: String(mangaId || "") });
+    if (!resp || resp.ok !== true) throw new Error(resp?.error || "follow_failed");
+    return true;
+  }
+
+  async function mdSetFollowCancelFlag(v) {
+    await setToStorage({ [MD_FOLLOW_CANCEL_KEY]: !!v });
+  }
+
+  async function mdIsFollowCancelRequested() {
+    try {
+      const { data } = await getFromStorage([MD_FOLLOW_CANCEL_KEY]);
+      return !!data[MD_FOLLOW_CANCEL_KEY];
+    } catch {
+      return false;
+    }
+  }
+
+  function mdCanUseAdvanced() {
+    const chk = document.getElementById("mdAcknowledgeRisk");
+    return !!chk?.checked;
+  }
+
+  function mdReadFollowSettingsFromUi() {
+    const sel = document.getElementById("mdFollowThreshold");
+    const raw = sel ? String(sel.value || "") : "";
+    const threshold = Number(raw);
+    const noOpen = !!document.getElementById("mdNoOpenAfterFollow")?.checked;
+    const safeThreshold =
+      Number.isFinite(threshold) && threshold > 0 && threshold < 1 ? threshold : MD_MATCH_MIN_SCORE;
+    return { threshold: safeThreshold, noOpenAfterFollow: noOpen };
+  }
+
+  async function mdPersistFollowSettingsLocal(settings) {
+    try {
+      const safe = {
+        threshold:
+          typeof settings?.threshold === "number" && Number.isFinite(settings.threshold)
+            ? settings.threshold
+            : MD_MATCH_MIN_SCORE,
+        noOpenAfterFollow: !!settings?.noOpenAfterFollow,
+      };
+      await storageSet(chrome.storage.local, { [MD_FOLLOW_SETTINGS_KEY]: safe });
+      return safe;
+    } catch {
+      return { threshold: MD_MATCH_MIN_SCORE, noOpenAfterFollow: false };
+    }
+  }
+
+  async function mdLoadFollowSettingsLocal() {
+    try {
+      const res = await storageGet(chrome.storage.local, [MD_FOLLOW_SETTINGS_KEY]);
+      if (res && !res.__error) {
+        const st =
+          res[MD_FOLLOW_SETTINGS_KEY] && typeof res[MD_FOLLOW_SETTINGS_KEY] === "object"
+            ? res[MD_FOLLOW_SETTINGS_KEY]
+            : null;
+        if (st) {
+          const threshold =
+            typeof st.threshold === "number" && Number.isFinite(st.threshold) ? st.threshold : MD_MATCH_MIN_SCORE;
+          const noOpenAfterFollow = !!st.noOpenAfterFollow;
+          return { threshold, noOpenAfterFollow };
+        }
+      }
+    } catch {
+      // no-op
+    }
+    return { threshold: MD_MATCH_MIN_SCORE, noOpenAfterFollow: false };
+  }
+
+  function mdReadAuthForm() {
+    const clientId = String(document.getElementById("mdClientId")?.value || "");
+    const clientSecret = String(document.getElementById("mdClientSecret")?.value || "");
+    const username = String(document.getElementById("mdUsername")?.value || "");
+    const password = String(document.getElementById("mdPassword")?.value || "");
+    return { clientId, clientSecret, username, password };
+  }
+
+  async function mdRefreshAuthUi() {
+    if (migrateState.targetSite !== "mangadex") {
+      setMdFollowUiVisible(false);
+      return;
+    }
+    setMdFollowUiVisible(true);
+
+    if (!mdCanUseAdvanced()) {
+      setMdAuthStatusText(t("migMdAuthStatusNeedRisk") || "Check the box to enable");
+      setMdButtonsState();
+      return;
+    }
+
+    const st = await mdAuthStatus();
+    if (st.connected) {
+      setMdAuthStatusText(t("migMdAuthStatusConnected") || "Status: connected");
+    } else {
+      setMdAuthStatusText(t("migMdAuthStatusDisconnected") || "Status: disconnected");
+    }
+    setMdButtonsState();
+  }
+
+  async function mdAutoFollowNext() {
+    if (!mdCanUseAdvanced()) return;
+    if (!Array.isArray(mdMatchResults) || !mdMatchResults.length) return;
+    if (mdFollowRunning) return;
+
+    mdFollowRunning = true;
+    setError("");
+    setMdButtonsState();
+    setMdFollowProgressText("-");
+
+    try {
+      const settings = mdReadFollowSettingsFromUi();
+      await mdPersistFollowSettingsLocal(settings);
+      // Find next match starting from mdMatchState.openIndex (so user can interleave).
+      if (!mdMatchState) {
+        const { state, results } = await getMdMatchStateFromStorage();
+        mdMatchState = state;
+        mdMatchResults = results || mdMatchResults;
+      }
+
+      let start = typeof mdMatchState?.openIndex === "number" ? mdMatchState.openIndex : 0;
+      start = Math.max(0, Math.min(mdMatchResults.length, start));
+
+      let target = null;
+      for (let i = start; i < mdMatchResults.length; i += 1) {
+        const r = mdMatchResults[i];
+        if (!r || !r.processed) continue;
+        const md = r.md && typeof r.md === "object" ? r.md : null;
+        const score = typeof r.score === "number" ? r.score : 0;
+        // Guardrail: only auto-follow high-confidence matches
+        if (md && md.id && score >= settings.threshold) {
+          target = { id: md.id, at: i, title: md.title || r.mpTitle || "" };
+          break;
+        }
+      }
+      if (!target) {
+        setMdFollowProgressText(t("migMdFollowDone") || "Auto-follow done");
+        return;
+      }
+
+      await mdFollow(target.id);
+      setMdFollowProgressText(t("migMdFollowProgressFmt", ["1", "1"]) || "Followed: 1 / 1");
+
+      // Advance openIndex so next click continues
+      await persistMdMatchStateAndResults({ ...(mdMatchState || {}), openIndex: target.at + 1 }, null);
+      // Option A behavior: open title page after auto-follow (so user can confirm),
+      // unless user enabled "no open after follow".
+      if (!settings.noOpenAfterFollow) openUrl(mdTitlePageUrl(target.id));
+    } catch (e) {
+      const msg = e && e.message ? String(e.message) : String(e);
+      setMdFollowProgressText((t("migMdFollowErrorFmt", [msg]) || `Auto-follow error: ${msg}`).slice(0, 220));
+    } finally {
+      mdFollowRunning = false;
+      setMdButtonsState();
+    }
+  }
+
+  async function mdAutoFollowAll() {
+    if (!mdCanUseAdvanced()) return;
+    if (!Array.isArray(mdMatchResults) || !mdMatchResults.length) return;
+    if (mdFollowRunning) return;
+
+    mdFollowRunning = true;
+    setError("");
+    setMdButtonsState();
+    setMdFollowProgressText("-");
+
+    try {
+      const settings = mdReadFollowSettingsFromUi();
+      await mdPersistFollowSettingsLocal(settings);
+      await mdSetFollowCancelFlag(false);
+      let total = 0;
+      let done = 0;
+
+      // Precompute targets
+      const targets = [];
+      for (let i = 0; i < mdMatchResults.length; i += 1) {
+        const r = mdMatchResults[i];
+        if (!r || !r.processed) continue;
+        const md = r.md && typeof r.md === "object" ? r.md : null;
+        const score = typeof r.score === "number" ? r.score : 0;
+        if (md && md.id && score >= settings.threshold) targets.push({ id: md.id, at: i });
+      }
+      total = targets.length;
+      if (!total) {
+        setMdFollowProgressText(t("migMdFollowDone") || "Auto-follow done");
+        return;
+      }
+
+      for (const tItem of targets) {
+        if (await mdIsFollowCancelRequested()) {
+          setMdFollowProgressText(t("migMdAutoMatchPaused") || "Paused");
+          return;
+        }
+        try {
+          await mdFollow(tItem.id);
+        } catch (e) {
+          // Continue but show last error
+          const msg = e && e.message ? String(e.message) : String(e);
+          setMdFollowProgressText((t("migMdFollowErrorFmt", [msg]) || `Auto-follow error: ${msg}`).slice(0, 220));
+        }
+        done += 1;
+        setMdFollowProgressText(
+          t("migMdFollowProgressFmt", [String(done), String(total)]) || `Followed: ${done} / ${total}`
+        );
+        await new Promise((x) => setTimeout(x, MD_FOLLOW_THROTTLE_MS));
+      }
+
+      setMdFollowProgressText(t("migMdFollowDone") || "Auto-follow done");
+    } finally {
+      mdFollowRunning = false;
+      setMdButtonsState();
+    }
+  }
+
+  async function mdStopAutoFollow() {
+    await mdSetFollowCancelFlag(true);
+  }
+
   function setMdButtonsState() {
     const startBtn = document.getElementById("mdMatchStartBtn");
     const pauseBtn = document.getElementById("mdMatchPauseBtn");
     const openNextBtn = document.getElementById("mdOpenNextBtn");
     const exportBtn = document.getElementById("mdExportMappingBtn");
+    const followNextBtn = document.getElementById("mdFollowNextBtn");
+    const followAllBtn = document.getElementById("mdFollowAllBtn");
+    const followStopBtn = document.getElementById("mdFollowStopBtn");
+    const loginBtn = document.getElementById("mdLoginBtn");
+    const logoutBtn = document.getElementById("mdLogoutBtn");
+    const testBtn = document.getElementById("mdTestBtn");
 
     const st = mdMatchState || { status: "idle", index: 0, total: items.length, matched: 0, openIndex: 0 };
     const hasAny = Array.isArray(mdMatchResults) && mdMatchResults.length > 0;
     const canOpenNext = hasAny;
     const canExport = hasAny;
     const isRunning = mdMatchRunning || st.status === "running";
+    const advancedEnabled = mdCanUseAdvanced();
 
     if (startBtn) {
       const startLabelKey =
@@ -337,6 +631,16 @@
     if (pauseBtn) pauseBtn.disabled = !isRunning;
     if (openNextBtn) openNextBtn.disabled = !canOpenNext;
     if (exportBtn) exportBtn.disabled = !canExport;
+
+    const followDisabled = !advancedEnabled || mdFollowRunning || !hasAny;
+    if (followNextBtn) followNextBtn.disabled = followDisabled;
+    if (followAllBtn) followAllBtn.disabled = followDisabled;
+    if (followStopBtn) followStopBtn.disabled = !mdFollowRunning;
+
+    // Auth buttons require risk ack
+    if (loginBtn) loginBtn.disabled = !advancedEnabled;
+    if (logoutBtn) logoutBtn.disabled = !advancedEnabled;
+    if (testBtn) testBtn.disabled = !advancedEnabled;
   }
 
   async function getMdMatchStateFromStorage() {
@@ -783,6 +1087,7 @@
 
     // Auto-match panel: MangaDex only
     setMdUiVisible(migrateState.targetSite === "mangadex");
+    setMdFollowUiVisible(migrateState.targetSite === "mangadex");
     setMdButtonsState();
   }
 
@@ -881,6 +1186,43 @@
       // no-op
     }
 
+    // Pre-fill MangaDex auth settings (clientId/secret/username) from local storage (best-effort).
+    try {
+      const local = await storageGet(chrome.storage.local, [MD_AUTH_SETTINGS_KEY]);
+      if (local && !local.__error) {
+        const st = local[MD_AUTH_SETTINGS_KEY] && typeof local[MD_AUTH_SETTINGS_KEY] === "object" ? local[MD_AUTH_SETTINGS_KEY] : null;
+        if (st) {
+          const cid = typeof st.clientId === "string" ? st.clientId : "";
+          const cs = typeof st.clientSecret === "string" ? st.clientSecret : "";
+          const un = typeof st.username === "string" ? st.username : "";
+          const elCid = document.getElementById("mdClientId");
+          const elCs = document.getElementById("mdClientSecret");
+          const elUn = document.getElementById("mdUsername");
+          if (elCid && !elCid.value) elCid.value = cid;
+          if (elCs && !elCs.value) elCs.value = cs;
+          if (elUn && !elUn.value) elUn.value = un;
+        }
+      }
+    } catch {
+      // no-op
+    }
+
+    // Pre-fill follow settings (threshold + noOpenAfterFollow)
+    try {
+      const st = await mdLoadFollowSettingsLocal();
+      const sel = document.getElementById("mdFollowThreshold");
+      const chkNoOpen = document.getElementById("mdNoOpenAfterFollow");
+      if (sel && !sel.value) sel.value = String(st.threshold);
+      if (sel && sel.value !== String(st.threshold)) {
+        // Ensure value is one of the options; fallback to recommended.
+        const allowed = new Set(["0.65", "0.72", "0.8", "0.80"]);
+        if (!allowed.has(sel.value)) sel.value = "0.72";
+      }
+      if (chkNoOpen) chkNoOpen.checked = !!st.noOpenAfterFollow;
+    } catch {
+      // no-op
+    }
+
     // initialize controls
     const sel = $("targetSite");
     if (sel) sel.value = migrateState.targetSite;
@@ -888,6 +1230,8 @@
     if (chk) chk.checked = !!migrateState.openNewTab;
 
     render();
+    // Refresh auth status label (best-effort; doesn’t block UI)
+    mdRefreshAuthUi().catch(() => {});
   }
 
   async function init() {
@@ -1027,6 +1371,62 @@
     });
     document.getElementById("mdExportMappingBtn")?.addEventListener("click", () => {
       mdExportMapping();
+    });
+
+    // Advanced: MangaDex auto-follow via API (opt-in)
+    document.getElementById("mdAcknowledgeRisk")?.addEventListener("change", async () => {
+      await mdRefreshAuthUi();
+    });
+
+    document.getElementById("mdFollowThreshold")?.addEventListener("change", async () => {
+      const st = mdReadFollowSettingsFromUi();
+      await mdPersistFollowSettingsLocal(st);
+      setMdButtonsState();
+    });
+    document.getElementById("mdNoOpenAfterFollow")?.addEventListener("change", async () => {
+      const st = mdReadFollowSettingsFromUi();
+      await mdPersistFollowSettingsLocal(st);
+      setMdButtonsState();
+    });
+
+    document.getElementById("mdLoginBtn")?.addEventListener("click", async () => {
+      setError("");
+      if (!mdCanUseAdvanced()) return;
+      const f = mdReadAuthForm();
+      try {
+        await mdSaveAuthSettingsLocal({ clientId: f.clientId, clientSecret: f.clientSecret, username: f.username });
+        await mdAuthLogin(f);
+        await mdRefreshAuthUi();
+      } catch (e) {
+        const msg = e && e.message ? String(e.message) : String(e);
+        setMdAuthStatusText((t("migMdFollowErrorFmt", [msg]) || msg).slice(0, 180));
+      }
+    });
+
+    document.getElementById("mdLogoutBtn")?.addEventListener("click", async () => {
+      setError("");
+      if (!mdCanUseAdvanced()) return;
+      await mdAuthLogout();
+      await mdRefreshAuthUi();
+    });
+
+    document.getElementById("mdTestBtn")?.addEventListener("click", async () => {
+      setError("");
+      if (!mdCanUseAdvanced()) return;
+      const st = await mdAuthStatus();
+      setMdAuthStatusText(
+        st.connected ? (t("migMdAuthStatusConnected") || "Status: connected") : (t("migMdAuthStatusDisconnected") || "Status: disconnected")
+      );
+    });
+
+    document.getElementById("mdFollowNextBtn")?.addEventListener("click", async () => {
+      await mdAutoFollowNext();
+    });
+    document.getElementById("mdFollowAllBtn")?.addEventListener("click", async () => {
+      await mdAutoFollowAll();
+    });
+    document.getElementById("mdFollowStopBtn")?.addEventListener("click", async () => {
+      await mdStopAutoFollow();
     });
 
     // Live updates if export list changes elsewhere

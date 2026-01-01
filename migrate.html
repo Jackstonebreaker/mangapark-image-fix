@@ -170,6 +170,80 @@
                   </div>
                 </div>
 
+                <!-- Auto-follow (Advanced / Opt-in) -->
+                <div id="mdAutoFollowPanel" class="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-lg p-4 mb-6" style="display:none;">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <p class="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1" data-i18n="migMdAutoFollowTitle">Auto-follow via API (advanced)</p>
+                      <p class="text-xs text-amber-800 dark:text-amber-300" data-i18n="migMdAutoFollowDesc">
+                        Optional. Uses your personal MangaDex API client to follow titles automatically. Only for power users.
+                      </p>
+                    </div>
+                    <div class="text-xs text-amber-800 dark:text-amber-300" id="mdAuthStatus">-</div>
+                  </div>
+
+                  <div class="mt-3 grid grid-cols-2 gap-2">
+                    <label class="text-xs text-amber-900 dark:text-amber-300">
+                      <span data-i18n="migMdClientIdLabel">Client ID</span>
+                      <input id="mdClientId" type="text" class="Input w-full mt-1" autocomplete="off" spellcheck="false" />
+                    </label>
+                    <label class="text-xs text-amber-900 dark:text-amber-300">
+                      <span data-i18n="migMdClientSecretLabel">Client Secret</span>
+                      <input id="mdClientSecret" type="password" class="Input w-full mt-1" autocomplete="off" />
+                    </label>
+                  </div>
+
+                  <div class="mt-2 grid grid-cols-2 gap-2">
+                    <label class="text-xs text-amber-900 dark:text-amber-300">
+                      <span data-i18n="migMdUsernameLabel">MangaDex Username</span>
+                      <input id="mdUsername" type="text" class="Input w-full mt-1" autocomplete="username" spellcheck="false" />
+                    </label>
+                    <label class="text-xs text-amber-900 dark:text-amber-300">
+                      <span data-i18n="migMdPasswordLabel">MangaDex Password</span>
+                      <input id="mdPassword" type="password" class="Input w-full mt-1" autocomplete="current-password" />
+                    </label>
+                  </div>
+
+                  <label class="flex items-center gap-2 mt-3 text-xs text-amber-900 dark:text-amber-300 cursor-pointer">
+                    <input id="mdAcknowledgeRisk" type="checkbox" class="Chk w-4 h-4 rounded border-gray-300 dark:border-border text-blue-600 focus-ring" />
+                    <span data-i18n="migMdAcknowledgeRisk">I understand this is an advanced feature and I accept the risk.</span>
+                  </label>
+
+                  <div class="mt-3 grid grid-cols-2 gap-2">
+                    <label class="text-xs text-amber-900 dark:text-amber-300">
+                      <span data-i18n="migMdFollowThresholdLabel">Auto-follow confidence</span>
+                      <select id="mdFollowThreshold" class="Select w-full mt-1 py-1.5 px-3 bg-white dark:bg-input border border-gray-300 dark:border-border rounded-md text-foreground text-sm focus-ring">
+                        <option value="0.65" data-i18n="migMdFollowThreshold65">0.65 (fast)</option>
+                        <option value="0.72" data-i18n="migMdFollowThreshold72">0.72 (recommended)</option>
+                        <option value="0.80" data-i18n="migMdFollowThreshold80">0.80 (safe)</option>
+                      </select>
+                    </label>
+                    <label class="flex items-center gap-2 mt-5 text-xs text-amber-900 dark:text-amber-300 cursor-pointer">
+                      <input id="mdNoOpenAfterFollow" type="checkbox" class="Chk w-4 h-4 rounded border-gray-300 dark:border-border text-blue-600 focus-ring" />
+                      <span data-i18n="migMdNoOpenAfterFollow">Do not open tabs after follow</span>
+                    </label>
+                  </div>
+
+                  <div class="mt-3 grid grid-cols-3 gap-2">
+                    <button id="mdLoginBtn" type="button" class="Btn secondary" style="font-size: 12px; padding: 8px 10px;" data-i18n="migMdLoginBtn">Connect</button>
+                    <button id="mdLogoutBtn" type="button" class="Btn ghost" style="font-size: 12px; padding: 8px 10px;" data-i18n="migMdLogoutBtn">Disconnect</button>
+                    <button id="mdTestBtn" type="button" class="Btn ghost" style="font-size: 12px; padding: 8px 10px;" data-i18n="migMdTestBtn">Test</button>
+                  </div>
+
+                  <div class="mt-3 grid grid-cols-3 gap-2">
+                    <button id="mdFollowNextBtn" type="button" class="Btn primary" style="font-size: 12px; padding: 8px 10px;" data-i18n="migMdFollowNextBtn">Auto-follow next</button>
+                    <button id="mdFollowAllBtn" type="button" class="Btn secondary" style="font-size: 12px; padding: 8px 10px;" data-i18n="migMdFollowAllBtn">Auto-follow all</button>
+                    <button id="mdFollowStopBtn" type="button" class="Btn ghost" style="font-size: 12px; padding: 8px 10px;" data-i18n="migMdFollowStopBtn">Stop</button>
+                  </div>
+
+                  <label class="flex items-center gap-2 mt-2 text-xs text-amber-900 dark:text-amber-300 cursor-pointer">
+                    <input id="mdFollowAllBackground" type="checkbox" class="Chk w-4 h-4 rounded border-gray-300 dark:border-border text-blue-600 focus-ring" />
+                    <span data-i18n="migMdFollowAllBackground">Run “Auto-follow all” in the background (you can close this tab)</span>
+                  </label>
+
+                  <p class="text-xs text-amber-800 dark:text-amber-300 mt-2" id="mdFollowProgressText">-</p>
+                </div>
+
                 <!-- Navigation -->
                 <div class="mb-6">
                   <div class="grid grid-cols-2 gap-3">

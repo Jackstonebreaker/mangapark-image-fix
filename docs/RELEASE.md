@@ -28,11 +28,14 @@ npm run pack
 
 Le zip final est : `dist/mangapark-image-fix.zip`.
 
-## 4) Tag et push
+## 4) Commit, tag et push
 
 ```bash
 cd mangapark-image-fix
+git add -A
+git commit -m "release: v1.0.0"
 git tag v1.0.0
+git push origin main
 git push origin v1.0.0
 ```
 

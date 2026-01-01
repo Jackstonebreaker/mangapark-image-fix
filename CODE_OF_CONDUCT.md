@@ -31,7 +31,8 @@ Les mainteneurs du projet peuvent supprimer, éditer ou rejeter tout commentaire
 
 Pour signaler un incident :
 
-- Utilise les **Security Advisories** GitHub si approprié, sinon contacte le mainteneur via GitHub.
+- Contacte le mainteneur via GitHub (profil du dépôt).  
+  Pour les vulnérabilités de sécurité : voir [`SECURITY.md`](SECURITY.md).
 
 ## Attribution
 

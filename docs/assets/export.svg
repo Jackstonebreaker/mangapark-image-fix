@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f4f6fb"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0b1220" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="820" fill="url(#bg)"/>
+
+  <!-- Header -->
+  <text x="100" y="130" font-family="Arial, sans-serif" font-size="56" font-weight="800" fill="#111827">Exporter ta bibliothèque</text>
+  <text x="100" y="180" font-family="Arial, sans-serif" font-size="26" fill="#6b7280">Crée une sauvegarde locale (CSV/JSON). Rien ne quitte ton ordinateur.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="100" y="230" width="1000" height="480" rx="22" fill="#ffffff" stroke="#e5e7eb"/>
+  </g>
+
+  <g transform="translate(140,270)">
+    <rect x="0" y="0" width="78" height="78" rx="18" fill="#ecfdf5"/>
+    <path d="M28 32 v26" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>
+    <path d="M18 48 l10 10 l10-10" stroke="#16a34a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="16" y="62" width="48" height="6" rx="3" fill="#16a34a" opacity="0.35"/>
+
+    <text x="110" y="26" font-family="Arial, sans-serif" font-size="34" font-weight="800" fill="#111827">Sauvegarder ma bibliothèque</text>
+    <text x="110" y="64" font-family="Arial, sans-serif" font-size="24" fill="#6b7280">Crée une sauvegarde de tes mangas suivis sur ton ordinateur</text>
+
+    <rect x="110" y="110" width="900" height="78" rx="18" fill="#eaf0ff"/>
+    <text x="140" y="160" font-family="Arial, sans-serif" font-size="26" fill="#111827">
+      Statut : <tspan font-weight="700">Quand tu veux</tspan>
+    </text>
+
+    <rect x="110" y="210" width="900" height="128" rx="18" fill="#f3f4f6"/>
+    <text x="140" y="255" font-family="Arial, sans-serif" font-size="24" fill="#6b7280">
+      On va ouvrir ta bibliothèque et sauvegarder ta liste sur ton appareil.
+    </text>
+    <text x="140" y="290" font-family="Arial, sans-serif" font-size="24" fill="#6b7280">
+      Ça prend quelques minutes. Tu peux fermer cette fenêtre à tout moment.
+    </text>
+
+    <rect x="110" y="360" width="900" height="84" rx="20" fill="#2563eb"/>
+    <text x="330" y="415" font-family="Arial, sans-serif" font-size="30" font-weight="800" fill="#ffffff">Sauvegarder ma bibliothèque</text>
+
+    <text x="110" y="490" font-family="Arial, sans-serif" font-size="22" fill="#6b7280">Tout reste privé. Rien ne quitte ton ordinateur.</text>
+
+    <rect x="110" y="525" width="900" height="96" rx="18" fill="#ecfdf5" stroke="#bbf7d0"/>
+    <text x="140" y="585" font-family="Arial, sans-serif" font-size="26" font-weight="800" fill="#166534">
+      Sûr & privé : Ton compte MangaPark reste inchangé · Tous les fichiers sont enregistrés localement
+    </text>
+  </g>
+</svg>
+

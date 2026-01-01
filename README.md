@@ -4,18 +4,23 @@
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Extension Chrome **Manifest V3** qui :
+Extension Chrome **Manifest V3** (open-source) qui :
 
 - **Corrige** des images cassées sur MangaPark (et domaines alternatifs) en réécrivant certaines URLs `s00..s10` `/media/`.
 - **Exporte** ta follow list localement (CSV/JSON) — privacy-first.
 - **Aide** à une migration manuelle via un panneau dédié (recherche sur services tiers, sans automatisation).
 
-## Screenshots
+## Captures d’écran
 
-> Remplace ces placeholders par de vraies captures.
+Ces captures sont incluses dans le repo. Tu peux les remplacer par tes propres PNG/JPG : voir `docs/assets/README.md`.
 
-- Popup : `docs/assets/popup.svg`
-- Migration panel : `docs/assets/migration-panel.svg`
+![Popup (Fix)](docs/assets/popup-fix.png)
+
+![Popup (Export)](docs/assets/popup-export.png)
+
+![Popup (Migration)](docs/assets/popup-migration.png)
+
+![Popup (Whitelist / paramètres)](docs/assets/popup-whitelist.png)
 
 ## Installation (Load unpacked)
 
@@ -46,6 +51,11 @@ Extension Chrome **Manifest V3** qui :
 1. Fais un export.
 2. Ouvre **Open Migration Panel** (`migrate.html`).
 3. Utilise **Search on target site** (MangaDex/AniList/MAL/MangaUpdates) — **manuel**.
+
+## Confidentialité
+
+- Politique : [`PRIVACY.md`](PRIVACY.md)
+- Vulnérabilités : [`SECURITY.md`](SECURITY.md)
 
 ## Développement
 
@@ -100,13 +110,17 @@ Host permissions :
 
 ## Compatibilité
 
-Testé sur :
-
 - Chrome (desktop)
 - Brave (desktop)
 - Microsoft Edge (desktop)
 
 > Si tu as un souci sur une version précise, ouvre une issue avec le template “Bug report”.
+
+## Support (GitHub)
+
+- Bugs : ouvre une issue “Bug report”
+- Idées : ouvre une issue “Feature request”
+- PR : bienvenue ! (voir [`CONTRIBUTING.md`](CONTRIBUTING.md))
 
 ## Sécurité
 

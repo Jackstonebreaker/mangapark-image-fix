@@ -16,9 +16,10 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage", "activeTab", "scripting", "downloads"],
+  "permissions": ["storage", "activeTab", "scripting", "downloads", "alarms"],
   "host_permissions": [
     "https://api.mangadex.org/*",
+    "https://auth.mangadex.org/*",
     "*://mangapark.com/*",
     "*://*.mangapark.com/*",
     "*://mangapark.org/*",
