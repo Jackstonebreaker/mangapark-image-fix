@@ -323,6 +323,7 @@ async function mdBatchTick() {
   let queue = await mdGetBatchQueue();
   const total = typeof st.total === "number" ? st.total : queue.length;
   let done = typeof st.done === "number" ? st.done : 0;
+  let errors = typeof st.errors === "number" ? st.errors : 0;
 
   // Process up to N per tick to avoid long-running handler.
   const chunkSize = 15;
@@ -341,21 +342,27 @@ async function mdBatchTick() {
 
     try {
       await mdFollowManga(id);
+      await mdSetBatchState({ lastSuccessAt: new Date().toISOString() });
     } catch (e) {
       const msg = e && e.message ? String(e.message) : String(e);
-      await mdSetBatchState({ lastError: msg });
+      errors += 1;
+      await mdSetBatchState({
+        lastError: msg,
+        lastErrorAt: new Date().toISOString(),
+        errors,
+      });
       // continue
     }
 
     done += 1;
-    await mdSetBatchState({ total, done });
+    await mdSetBatchState({ total, done, errors });
     await sleep(Math.max(200, throttleMs));
   }
 
   await mdSetBatchQueue(queue);
 
   if (!queue.length) {
-    await mdSetBatchState({ status: "done", total, done });
+    await mdSetBatchState({ status: "done", total, done, errors });
     alarmsClearSafe(MD_FOLLOW_BATCH_ALARM);
     return;
   }
@@ -451,8 +458,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         status: "running",
         total,
         done: 0,
+        errors: 0,
         throttleMs: Number.isFinite(throttleMs) ? Math.max(200, Math.floor(throttleMs)) : 800,
         lastError: "",
+        lastErrorAt: "",
+        lastSuccessAt: "",
       });
       alarmsCreateSafe(MD_FOLLOW_BATCH_ALARM, { delayInMinutes: 0.01 });
       return { ok: true, total };

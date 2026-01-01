@@ -51,6 +51,7 @@ Ces captures sont incluses dans le repo. Tu peux les remplacer par tes propres P
 1. Fais un export.
 2. Ouvre **Open Migration Panel** (`migrate.html`).
 3. Utilise **Search on target site** (MangaDex/AniList/MAL/MangaUpdates) — **manuel**.
+4. (Optionnel) Sur MangaDex, tu peux activer **Auto‑match** (suggestions) et/ou **Auto‑follow via API** (avancé / opt‑in).
 
 ## Confidentialité
 
@@ -106,7 +107,8 @@ Permissions déclarées dans `manifest.json` :
 Host permissions :
 
 - Domaines MangaPark & alternatifs : exécution du content script.
-- `https://api.mangadex.org/*` : utilisé par la migration (recherche/metadata si activé côté UI).
+- `https://api.mangadex.org/*` : utilisé par la migration (recherche / auto-match).
+- `https://auth.mangadex.org/*` : utilisé uniquement si tu actives l’option avancée **Auto-follow via API** (authentification OAuth2).
 
 ## Compatibilité
 

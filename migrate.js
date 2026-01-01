@@ -26,6 +26,7 @@
   const MD_AUTH_SETTINGS_KEY = "md_auth_settings"; // local
   const MD_FOLLOW_CANCEL_KEY = "md_follow_cancel";
   const MD_FOLLOW_SETTINGS_KEY = "md_follow_settings"; // local: { threshold, noOpenAfterFollow }
+  const MD_FOLLOW_BATCH_STATE_KEY = "md_follow_batch_state"; // local (written by service worker)
 
   const MD_API_BASE = "https://api.mangadex.org";
   const MD_SITE_BASE = "https://mangadex.org";
@@ -51,6 +52,42 @@
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function showToast(kind, title, message, timeoutMs = 3500) {
+    const toast = document.getElementById("toast");
+    const dot = document.getElementById("toastDot");
+    const tTitle = document.getElementById("toastTitle");
+    const tMsg = document.getElementById("toastMessage");
+    if (!toast || !dot || !tTitle || !tMsg) return;
+
+    const k = String(kind || "info");
+    const colors =
+      k === "success"
+        ? { dot: "bg-green-600", border: "border-green-200 dark:border-green-900/30" }
+        : k === "error"
+          ? { dot: "bg-red-600", border: "border-red-200 dark:border-red-900/30" }
+          : { dot: "bg-blue-600", border: "border-blue-200 dark:border-blue-900/30" };
+
+    dot.className = `mt-1.5 w-2.5 h-2.5 rounded-full ${colors.dot}`;
+    const inner = document.getElementById("toastInner");
+    if (inner) {
+      inner.className = `max-w-sm rounded-lg border shadow-lg px-4 py-3 bg-white dark:bg-cardDark text-foreground ${colors.border}`;
+    }
+
+    tTitle.textContent = String(title || "");
+    tMsg.textContent = String(message || "");
+    toast.style.display = "block";
+
+    const close = () => {
+      try {
+        toast.style.display = "none";
+      } catch {
+        // no-op
+      }
+    };
+    document.getElementById("toastCloseBtn")?.addEventListener("click", close, { once: true });
+    if (timeoutMs && timeoutMs > 0) setTimeout(close, timeoutMs);
   }
 
   function getChromeLastErrorMessage() {
@@ -230,6 +267,7 @@
   let mdMatchResults = null;
   let mdMatchRunning = false;
   let mdFollowRunning = false;
+  let mdFollowBatchRunning = false;
 
   function clampIndex(i) {
     if (!items.length) return 0;
@@ -316,6 +354,16 @@
     if (el) el.textContent = String(text || "-");
   }
 
+  function setMdMatchCountersText(text) {
+    const el = document.getElementById("mdMatchCountersText");
+    if (el) el.textContent = String(text || "-");
+  }
+
+  function setMdFollowCountersText(text) {
+    const el = document.getElementById("mdFollowCountersText");
+    if (el) el.textContent = String(text || "-");
+  }
+
   function setMdUiVisible(visible) {
     const panel = document.getElementById("mdAutoMatchPanel");
     if (!panel) return;
@@ -331,6 +379,46 @@
   function setMdAuthStatusText(text) {
     const el = document.getElementById("mdAuthStatus");
     if (el) el.textContent = String(text || "-");
+  }
+
+  function setMdAuthStatusBadge(text, kind) {
+    const el = document.getElementById("mdAuthStatusBadge");
+    if (!el) return;
+    el.textContent = String(text || "-");
+    const k = String(kind || "neutral");
+    if (k === "ok") {
+      el.className =
+        "text-[11px] px-2 py-0.5 rounded-full border border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-300";
+    } else if (k === "warn") {
+      el.className =
+        "text-[11px] px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300";
+    } else {
+      el.className =
+        "text-[11px] px-2 py-0.5 rounded-full border border-gray-200 dark:border-border/30 bg-gray-50 dark:bg-panel text-muted-foreground";
+    }
+  }
+
+  function setMdSectionBadge(id, text, kind) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = String(text || "-");
+    const k = String(kind || "neutral");
+    if (k === "ok") {
+      el.className =
+        "text-[11px] px-2 py-0.5 rounded-full border border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-300";
+    } else if (k === "run") {
+      el.className =
+        "text-[11px] px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300";
+    } else if (k === "warn") {
+      el.className =
+        "text-[11px] px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300";
+    } else if (k === "err") {
+      el.className =
+        "text-[11px] px-2 py-0.5 rounded-full border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300";
+    } else {
+      el.className =
+        "text-[11px] px-2 py-0.5 rounded-full border border-gray-200 dark:border-border/30 bg-gray-50 dark:bg-panel text-muted-foreground";
+    }
   }
 
   function setMdFollowProgressText(text) {
@@ -387,6 +475,70 @@
     const resp = await runtimeSendMessage({ type: "MD_FOLLOW", mangaId: String(mangaId || "") });
     if (!resp || resp.ok !== true) throw new Error(resp?.error || "follow_failed");
     return true;
+  }
+
+  async function mdBatchStart(mangaIds, throttleMs) {
+    const resp = await runtimeSendMessage({
+      type: "MD_FOLLOW_BATCH_START",
+      mangaIds: Array.isArray(mangaIds) ? mangaIds : [],
+      throttleMs,
+    });
+    if (!resp || resp.ok !== true) throw new Error(resp?.error || "batch_start_failed");
+    return resp;
+  }
+
+  async function mdBatchStop() {
+    await runtimeSendMessage({ type: "MD_FOLLOW_BATCH_STOP" });
+  }
+
+  async function mdBatchStatus() {
+    const resp = await runtimeSendMessage({ type: "MD_FOLLOW_BATCH_STATUS" });
+    if (!resp || resp.ok !== true) return { state: null };
+    return { state: resp.state || null };
+  }
+
+  function mdIsBatchRunning(state) {
+    try {
+      return !!(state && typeof state === "object" && String(state.status || "") === "running");
+    } catch {
+      return false;
+    }
+  }
+
+  function mdApplyBatchStateToUi(state) {
+    try {
+      mdFollowBatchRunning = mdIsBatchRunning(state);
+      const status = state && typeof state.status === "string" ? state.status : "";
+      const done = typeof state?.done === "number" ? state.done : 0;
+      const total = typeof state?.total === "number" ? state.total : 0;
+      const lastError = typeof state?.lastError === "string" ? state.lastError : "";
+      const errors = typeof state?.errors === "number" ? state.errors : 0;
+
+      if (status === "running") {
+        setMdFollowProgressText(
+          t("migMdFollowProgressFmt", [String(done), String(total)]) || `Followed: ${done} / ${total}`
+        );
+      } else if (status === "done") {
+        setMdFollowProgressText(t("migMdFollowDone") || "Auto-follow done");
+      } else if (status === "stopped") {
+        setMdFollowProgressText(t("migMdAutoMatchPaused") || "Paused");
+      } else if (status === "error") {
+        setMdFollowProgressText(
+          (t("migMdFollowErrorFmt", [lastError || "error"]) || `Auto-follow error: ${lastError || "error"}`).slice(
+            0,
+            220
+          )
+        );
+      }
+
+      setMdFollowCountersText(
+        t("migMdFollowCountersFmt", [String(done), String(total), String(errors)]) ||
+          `Suivis: ${done}/${total} • Erreurs: ${errors}`
+      );
+      setMdButtonsState();
+    } catch {
+      // no-op
+    }
   }
 
   async function mdSetFollowCancelFlag(v) {
@@ -471,6 +623,8 @@
 
     if (!mdCanUseAdvanced()) {
       setMdAuthStatusText(t("migMdAuthStatusNeedRisk") || "Check the box to enable");
+      setMdAuthStatusBadge(t("migMdAuthStatusNeedRisk") || "Check the box to enable", "warn");
+      setMdSectionBadge("mdFollowStatusBadge", "Locked", "warn");
       setMdButtonsState();
       return;
     }
@@ -478,8 +632,12 @@
     const st = await mdAuthStatus();
     if (st.connected) {
       setMdAuthStatusText(t("migMdAuthStatusConnected") || "Status: connected");
+      setMdAuthStatusBadge(t("migMdAuthStatusConnected") || "Status: connected", "ok");
+      setMdSectionBadge("mdFollowStatusBadge", "Ready", "ok");
     } else {
       setMdAuthStatusText(t("migMdAuthStatusDisconnected") || "Status: disconnected");
+      setMdAuthStatusBadge(t("migMdAuthStatusDisconnected") || "Status: disconnected", "neutral");
+      setMdSectionBadge("mdFollowStatusBadge", "Disconnected", "warn");
     }
     setMdButtonsState();
   }
@@ -526,6 +684,7 @@
 
       await mdFollow(target.id);
       setMdFollowProgressText(t("migMdFollowProgressFmt", ["1", "1"]) || "Followed: 1 / 1");
+      setMdFollowCountersText(t("migMdFollowCountersFmt", ["1", "1", "0"]) || "Suivis: 1/1 • Erreurs: 0");
 
       // Advance openIndex so next click continues
       await persistMdMatchStateAndResults({ ...(mdMatchState || {}), openIndex: target.at + 1 }, null);
@@ -535,6 +694,7 @@
     } catch (e) {
       const msg = e && e.message ? String(e.message) : String(e);
       setMdFollowProgressText((t("migMdFollowErrorFmt", [msg]) || `Auto-follow error: ${msg}`).slice(0, 220));
+      setMdFollowCountersText(t("migMdFollowCountersFmt", ["0", "1", "1"]) || "Suivis: 0/1 • Erreurs: 1");
     } finally {
       mdFollowRunning = false;
       setMdButtonsState();
@@ -573,6 +733,19 @@
         return;
       }
 
+      const bg = !!document.getElementById("mdFollowAllBackground")?.checked;
+      if (bg) {
+        // Background mode: delegate to service worker so the batch can keep running even if this tab is closed.
+        const ids = targets.map((x) => x.id);
+        const resp = await mdBatchStart(ids, MD_FOLLOW_THROTTLE_MS);
+        const total2 = typeof resp?.total === "number" ? resp.total : total;
+        setMdFollowProgressText(
+          t("migMdFollowProgressFmt", ["0", String(total2)]) || `Followed: 0 / ${total2}`
+        );
+        // UI running state will be updated via storage.onChanged (batch state key).
+        return;
+      }
+
       for (const tItem of targets) {
         if (await mdIsFollowCancelRequested()) {
           setMdFollowProgressText(t("migMdAutoMatchPaused") || "Paused");
@@ -600,6 +773,11 @@
   }
 
   async function mdStopAutoFollow() {
+    // If a background batch is running, stop that; otherwise stop the in-page loop.
+    if (mdFollowBatchRunning) {
+      await mdBatchStop();
+      return;
+    }
     await mdSetFollowCancelFlag(true);
   }
 
@@ -632,10 +810,10 @@
     if (openNextBtn) openNextBtn.disabled = !canOpenNext;
     if (exportBtn) exportBtn.disabled = !canExport;
 
-    const followDisabled = !advancedEnabled || mdFollowRunning || !hasAny;
+    const followDisabled = !advancedEnabled || mdFollowRunning || mdFollowBatchRunning || !hasAny;
     if (followNextBtn) followNextBtn.disabled = followDisabled;
     if (followAllBtn) followAllBtn.disabled = followDisabled;
-    if (followStopBtn) followStopBtn.disabled = !mdFollowRunning;
+    if (followStopBtn) followStopBtn.disabled = !(mdFollowRunning || mdFollowBatchRunning);
 
     // Auth buttons require risk ack
     if (loginBtn) loginBtn.disabled = !advancedEnabled;
@@ -766,6 +944,7 @@
     if (migrateState.targetSite !== "mangadex") return;
 
     mdMatchRunning = true;
+    setMdSectionBadge("mdMatchStatusBadge", "Running", "run");
     setError("");
     setMdButtonsState();
 
@@ -798,6 +977,7 @@
         if (await isMdCancelRequested()) {
           await persistMdMatchStateAndResults({ ...mdMatchState, status: "paused", index: i }, mdMatchResults);
           setMdMatchProgressText(t("migMdAutoMatchPaused") || "Paused");
+          setMdSectionBadge("mdMatchStatusBadge", "Paused", "warn");
           return;
         }
 
@@ -853,9 +1033,13 @@
         }
 
         const pct = Math.round(((i + 1) / items.length) * 100);
+        setMdMatchCountersText(
+          t("migMdMatchCountersFmt", [String(i + 1), String(items.length), String(matched)]) ||
+            `Analysés: ${i + 1}/${items.length} • Bons matches: ${matched}`
+        );
         setMdMatchProgressText(
           t("migMdAutoMatchProgressFmt", [String(i + 1), String(items.length), String(pct), String(matched)]) ||
-            `${i + 1}/${items.length} — ${pct}% — matched: ${matched}`
+            `${i + 1}/${items.length} — ${pct}% — matchs: ${matched}`
         );
         setMdButtonsState();
 
@@ -864,10 +1048,12 @@
 
       await persistMdMatchStateAndResults({ ...(mdMatchState || {}), status: "done", index: items.length, matched }, mdMatchResults);
       setMdMatchProgressText(t("migMdAutoMatchDone") || "Done");
+      setMdSectionBadge("mdMatchStatusBadge", "Done", "ok");
     } catch (e) {
       const msg = e && e.message ? String(e.message) : String(e);
       await persistMdMatchStateAndResults({ ...(mdMatchState || {}), status: "paused", error: msg }, mdMatchResults);
       setMdMatchProgressText((t("migMdAutoMatchErrorFmt", [msg]) || `Error: ${msg}`).slice(0, 200));
+      setMdSectionBadge("mdMatchStatusBadge", "Error", "err");
     } finally {
       mdMatchRunning = false;
       setMdButtonsState();
@@ -1175,6 +1361,10 @@
       if (migrateState.targetSite === "mangadex") {
         const done = st2.status === "done";
         const pct = st2.total ? Math.round(((Math.min(st2.index, st2.total)) / st2.total) * 100) : 0;
+        setMdMatchCountersText(
+          t("migMdMatchCountersFmt", [String(st2.index || 0), String(items.length), String(st2.matched || 0)]) ||
+            `Analysés: ${st2.index || 0}/${items.length} • Bons matches: ${st2.matched || 0}`
+        );
         setMdMatchProgressText(
           done
             ? (t("migMdAutoMatchDone") || "Done")
@@ -1232,6 +1422,14 @@
     render();
     // Refresh auth status label (best-effort; doesn’t block UI)
     mdRefreshAuthUi().catch(() => {});
+
+    // Load existing background batch state (best-effort)
+    try {
+      const s = await mdBatchStatus();
+      if (s && s.state) mdApplyBatchStateToUi(s.state);
+    } catch {
+      // no-op
+    }
   }
 
   async function init() {
@@ -1395,11 +1593,28 @@
       const f = mdReadAuthForm();
       try {
         await mdSaveAuthSettingsLocal({ clientId: f.clientId, clientSecret: f.clientSecret, username: f.username });
+        showToast(
+          "success",
+          t("migToastSavedTitle") || "Saved",
+          t("migToastSavedDesc") || "API settings saved locally."
+        );
         await mdAuthLogin(f);
+        showToast(
+          "success",
+          t("migToastConnectedTitle") || "Connected",
+          t("migToastConnectedDesc") || "MangaDex API connection is ready."
+        );
         await mdRefreshAuthUi();
       } catch (e) {
         const msg = e && e.message ? String(e.message) : String(e);
         setMdAuthStatusText((t("migMdFollowErrorFmt", [msg]) || msg).slice(0, 180));
+        setMdAuthStatusBadge(t("migMdAuthStatusDisconnected") || "Status: disconnected", "warn");
+        setMdSectionBadge("mdFollowStatusBadge", "Error", "err");
+        showToast(
+          "error",
+          t("migToastConnectFailTitle") || "Connection failed",
+          msg
+        );
       }
     });
 
@@ -1428,6 +1643,19 @@
     document.getElementById("mdFollowStopBtn")?.addEventListener("click", async () => {
       await mdStopAutoFollow();
     });
+
+    // Live updates for background auto-follow batch (service worker)
+    try {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== "local") return;
+        if (!changes || !changes[MD_FOLLOW_BATCH_STATE_KEY]) return;
+        const st = changes[MD_FOLLOW_BATCH_STATE_KEY].newValue;
+        if (!st || typeof st !== "object") return;
+        mdApplyBatchStateToUi(st);
+      });
+    } catch {
+      // no-op
+    }
 
     // Live updates if export list changes elsewhere
     try {

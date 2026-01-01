@@ -7,6 +7,22 @@
     <link rel="stylesheet" href="migrate.css" />
   </head>
   <body>
+    <!-- Toast (global, hidden by default; controlled by migrate.js) -->
+    <div id="toast" class="fixed top-4 right-4 z-50" style="display:none;">
+      <div id="toastInner" class="max-w-sm rounded-lg border shadow-lg px-4 py-3 bg-white dark:bg-cardDark text-foreground">
+        <div class="flex items-start gap-3">
+          <div id="toastDot" class="mt-1.5 w-2.5 h-2.5 rounded-full bg-blue-600"></div>
+          <div class="flex-1">
+            <p id="toastTitle" class="text-sm font-semibold">-</p>
+            <p id="toastMessage" class="text-xs text-muted-foreground mt-0.5">-</p>
+          </div>
+          <button id="toastCloseBtn" type="button" class="Btn ghost IconBtn" aria-label="Close toast">
+            <span aria-hidden="true">✕</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Root matches MigrationPanel.tsx: <div className={isDark ? 'dark' : ''}> -->
     <div id="root" class="">
       <div class="min-h-screen bg-background text-foreground">
@@ -150,14 +166,18 @@
                 </div>
 
                 <!-- Auto-match (MangaDex) -->
-                <div id="mdAutoMatchPanel" class="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-lg p-4 mb-6" style="display:none;">
+                <div id="mdAutoMatchPanel" class="bg-white dark:bg-cardDark border border-gray-200 dark:border-border/50 rounded-lg p-5 mb-6 shadow-sm" style="display:none;">
                   <div class="flex items-start justify-between gap-4">
-                    <div>
-                      <p class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1" data-i18n="migMdAutoMatchTitle">Auto-match MangaDex (beta)</p>
-                      <p class="text-xs text-blue-800 dark:text-blue-300" data-i18n="migMdAutoMatchDesc">We search MangaDex for each title and suggest the best match. You still follow manually.</p>
-                      <p class="text-xs text-blue-800 dark:text-blue-300 mt-2">
-                        <span id="mdMatchProgressText">-</span>
-                      </p>
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <p class="text-sm font-semibold" data-i18n="migMdAutoMatchTitle">Auto-match MangaDex (beta)</p>
+                        <span id="mdMatchStatusBadge" class="text-[11px] px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300">-</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground" data-i18n="migMdAutoMatchDesc">We search MangaDex for each title and suggest the best match. You still follow manually.</p>
+                      <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span id="mdMatchCountersText" class="px-2 py-1 rounded-md bg-gray-50 dark:bg-panel border border-gray-200 dark:border-border/30">-</span>
+                        <span id="mdMatchProgressText" class="text-muted-foreground">-</span>
+                      </div>
                     </div>
                     <div class="flex flex-col gap-2">
                       <button id="mdMatchStartBtn" type="button" class="Btn secondary" style="font-size: 12px; padding: 6px 10px;" data-i18n="migMdMatchStartBtn">Start</button>
@@ -171,15 +191,21 @@
                 </div>
 
                 <!-- Auto-follow (Advanced / Opt-in) -->
-                <div id="mdAutoFollowPanel" class="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-lg p-4 mb-6" style="display:none;">
+                <div id="mdAutoFollowPanel" class="bg-white dark:bg-cardDark border border-gray-200 dark:border-border/50 rounded-lg p-5 mb-6 shadow-sm" style="display:none;">
                   <div class="flex items-start justify-between gap-4">
                     <div>
-                      <p class="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1" data-i18n="migMdAutoFollowTitle">Auto-follow via API (advanced)</p>
-                      <p class="text-xs text-amber-800 dark:text-amber-300" data-i18n="migMdAutoFollowDesc">
+                      <div class="flex items-center gap-2 mb-1">
+                        <p class="text-sm font-semibold" data-i18n="migMdAutoFollowTitle">Auto-follow via API (advanced)</p>
+                        <span id="mdFollowStatusBadge" class="text-[11px] px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300">-</span>
+                      </div>
+                      <p class="text-xs text-muted-foreground" data-i18n="migMdAutoFollowDesc">
                         Optional. Uses your personal MangaDex API client to follow titles automatically. Only for power users.
                       </p>
                     </div>
-                    <div class="text-xs text-amber-800 dark:text-amber-300" id="mdAuthStatus">-</div>
+                    <div class="flex flex-col items-end gap-1">
+                      <span id="mdAuthStatusBadge" class="text-[11px] px-2 py-0.5 rounded-full border border-gray-200 dark:border-border/30 bg-gray-50 dark:bg-panel text-muted-foreground">-</span>
+                      <span class="text-xs text-muted-foreground" id="mdAuthStatus">-</span>
+                    </div>
                   </div>
 
                   <div class="mt-3 grid grid-cols-2 gap-2">
@@ -241,7 +267,10 @@
                     <span data-i18n="migMdFollowAllBackground">Run “Auto-follow all” in the background (you can close this tab)</span>
                   </label>
 
-                  <p class="text-xs text-amber-800 dark:text-amber-300 mt-2" id="mdFollowProgressText">-</p>
+                  <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    <span id="mdFollowCountersText" class="px-2 py-1 rounded-md bg-gray-50 dark:bg-panel border border-gray-200 dark:border-border/30">-</span>
+                    <span id="mdFollowProgressText" class="text-muted-foreground">-</span>
+                  </div>
                 </div>
 
                 <!-- Navigation -->
