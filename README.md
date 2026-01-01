@@ -1,6 +1,7 @@
 # MangaPark Toolkit (Chrome Extension MV3)
 
 [![CI](https://github.com/Jackstonebreaker/mangapark-image-fix/actions/workflows/ci.yml/badge.svg)](https://github.com/Jackstonebreaker/mangapark-image-fix/actions/workflows/ci.yml)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/Jackstonebreaker/mangapark-image-fix?utm_source=oss&utm_medium=github&utm_campaign=Jackstonebreaker%2Fmangapark-image-fix&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
