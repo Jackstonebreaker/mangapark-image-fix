@@ -212,20 +212,13 @@ function applyDefaults(partial) {
 }
 
 async function setConfig(patch) {
-  const res = await storageSet(chrome.storage.sync, patch);
-  if (res.ok) {
-    // Best-effort: mark sync as active mode.
-    await storageSet(chrome.storage.local, { [CONFIG_STORAGE_MODE_KEY]: "sync" });
-    return true;
-  }
-
-  const res2 = await storageSet(chrome.storage.local, patch);
-  if (res2.ok) {
-    // Sync is readable but not writable in some environments; prefer local from now on.
-    await storageSet(chrome.storage.local, { [CONFIG_STORAGE_MODE_KEY]: "local" });
-    return true;
-  }
-  return false;
+  // IMPORTANT:
+  // Some environments can READ sync but cannot WRITE to it (quota/policy/transient).
+  // `setToStorage()` encapsulates:
+  // - honoring CONFIG_STORAGE_MODE_KEY (local-first if already switched)
+  // - sync->local fallback
+  // - keeping the mode marker consistent
+  return await setToStorage(patch);
 }
 
 function uniq(arr) {
