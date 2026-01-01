@@ -24,7 +24,6 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install (lockfile if present)
-        working-directory: mangapark-image-fix
         run: |
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
             npm ci
@@ -33,14 +32,11 @@ jobs:
           fi
 
       - name: Lint
-        working-directory: mangapark-image-fix
         run: npm run lint
 
       - name: Format check
-        working-directory: mangapark-image-fix
         run: npm run format:check
 
       - name: Tests
-        working-directory: mangapark-image-fix
         run: npm test
 
