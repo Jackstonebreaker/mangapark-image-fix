@@ -19,6 +19,50 @@
     return String(s || "").trim();
   }
 
+  function normalizeForMatch(s) {
+    // Aggressive normalization for fuzzy matching (ASCII-ish, lowercase, compact spaces).
+    // Keep it dependency-free and deterministic.
+    try {
+      let x = String(s || "");
+      x = x.normalize("NFKD").replace(/[\u0300-\u036f]/g, ""); // strip diacritics
+      x = x.toLowerCase();
+      // Replace punctuation/separators with spaces
+      x = x.replace(/[^a-z0-9]+/g, " ");
+      x = x.replace(/\s+/g, " ").trim();
+      return x;
+    } catch {
+      return String(s || "").toLowerCase().trim();
+    }
+  }
+
+  function diceCoefficient(a, b) {
+    // Sørensen–Dice coefficient on bigrams (0..1)
+    const s1 = normalizeForMatch(a);
+    const s2 = normalizeForMatch(b);
+    if (!s1 || !s2) return 0;
+    if (s1 === s2) return 1;
+    if (s1.length < 2 || s2.length < 2) return 0;
+
+    const bigrams = new Map();
+    for (let i = 0; i < s1.length - 1; i += 1) {
+      const bg = s1.slice(i, i + 2);
+      bigrams.set(bg, (bigrams.get(bg) || 0) + 1);
+    }
+
+    let matches = 0;
+    for (let i = 0; i < s2.length - 1; i += 1) {
+      const bg = s2.slice(i, i + 2);
+      const count = bigrams.get(bg) || 0;
+      if (count > 0) {
+        bigrams.set(bg, count - 1);
+        matches += 1;
+      }
+    }
+
+    const total = (s1.length - 1) + (s2.length - 1);
+    return total > 0 ? (2 * matches) / total : 0;
+  }
+
   function buildSearchUrl(siteId, title) {
     const q = encodeURIComponent(normalizeTitle(title));
     switch (siteId) {
@@ -70,6 +114,14 @@
     return JSON.stringify(payload, null, 2);
   }
 
-  return { buildSearchUrl, makeCsv, makeJson, csvEscape, normalizeTitle };
+  return {
+    buildSearchUrl,
+    makeCsv,
+    makeJson,
+    csvEscape,
+    normalizeTitle,
+    normalizeForMatch,
+    diceCoefficient,
+  };
 });
 

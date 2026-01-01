@@ -36,9 +36,17 @@ function testCsv() {
   assert.ok(csv.split("\n").length === 2);
 }
 
+function testMatchUtils() {
+  assert.strictEqual(U.normalizeForMatch("  One-Piéce!! "), "one piece");
+  assert.ok(U.diceCoefficient("One Piece", "One Piece") === 1);
+  assert.ok(U.diceCoefficient("One Piece", "One") < 1);
+  assert.ok(U.diceCoefficient("Berserk", "Berserker") > 0.6);
+}
+
 function run() {
   testBuildSearchUrl();
   testCsv();
+  testMatchUtils();
   console.log("migrate_utils.test.js OK");
 }
 

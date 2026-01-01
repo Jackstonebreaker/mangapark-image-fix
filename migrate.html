@@ -149,6 +149,27 @@
                   </p>
                 </div>
 
+                <!-- Auto-match (MangaDex) -->
+                <div id="mdAutoMatchPanel" class="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-lg p-4 mb-6" style="display:none;">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <p class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1" data-i18n="migMdAutoMatchTitle">Auto-match MangaDex (beta)</p>
+                      <p class="text-xs text-blue-800 dark:text-blue-300" data-i18n="migMdAutoMatchDesc">We search MangaDex for each title and suggest the best match. You still follow manually.</p>
+                      <p class="text-xs text-blue-800 dark:text-blue-300 mt-2">
+                        <span id="mdMatchProgressText">-</span>
+                      </p>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                      <button id="mdMatchStartBtn" type="button" class="Btn secondary" style="font-size: 12px; padding: 6px 10px;" data-i18n="migMdMatchStartBtn">Start</button>
+                      <button id="mdMatchPauseBtn" type="button" class="Btn ghost" style="font-size: 12px; padding: 6px 10px;" data-i18n="migMdMatchPauseBtn">Pause</button>
+                    </div>
+                  </div>
+                  <div class="mt-3 grid grid-cols-2 gap-2">
+                    <button id="mdOpenNextBtn" type="button" class="Btn primary" style="font-size: 12px; padding: 8px 10px;" data-i18n="migMdOpenNextBtn">Open next match →</button>
+                    <button id="mdExportMappingBtn" type="button" class="Btn secondary" style="font-size: 12px; padding: 8px 10px;" data-i18n="migMdExportMappingBtn">Download mapping</button>
+                  </div>
+                </div>
+
                 <!-- Navigation -->
                 <div class="mb-6">
                   <div class="grid grid-cols-2 gap-3">

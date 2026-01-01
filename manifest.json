@@ -18,6 +18,7 @@
   },
   "permissions": ["storage", "activeTab", "scripting", "downloads"],
   "host_permissions": [
+    "https://api.mangadex.org/*",
     "*://mangapark.com/*",
     "*://*.mangapark.com/*",
     "*://mangapark.org/*",

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+.git/
+
+# Generated / packaging
+*.zip
+*.crx

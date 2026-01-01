@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            mangapark-image-fix/package-lock.json
+            mangapark-image-fix/npm-shrinkwrap.json
+
+      - name: Install (lockfile if present)
+        working-directory: mangapark-image-fix
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Lint
+        working-directory: mangapark-image-fix
+        run: npm run lint
+
+      - name: Format check
+        working-directory: mangapark-image-fix
+        run: npm run format:check
+
+      - name: Tests
+        working-directory: mangapark-image-fix
+        run: npm test
+

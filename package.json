@@ -1,0 +1,21 @@
+{
+  "name": "mangapark-image-fix",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome MV3 extension: fix broken MangaPark images, export follow list locally, and assist manual migration.",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node tests/migrate_utils.test.js && node tests/mp_export_runner.test.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "pack": "bash ./scripts/pack.sh"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2"
+  }
+}
+

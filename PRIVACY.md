@@ -1,27 +1,50 @@
 # Politique de confidentialité — MangaPark Toolkit
 
-## Collecte de données
+Ce document décrit comment l’extension gère les données. Objectif : **privacy-first**.
 
-Cette extension **ne collecte aucune donnée personnelle** et **ne suit pas** les utilisateurs.
+## Résumé
 
-## Stockage
+- **Aucune collecte** de données par un serveur “éditeur” : l’extension ne possède pas de backend.
+- **Aucun tracking** (pas d’analytics, pas de pixels, pas de fingerprinting).
+- Les données restent **dans ton navigateur** (Chrome storage) et/ou dans les **fichiers exportés** que tu télécharges.
 
-- L’extension stocke uniquement des **préférences** (activation, debug, sites autorisés) dans le navigateur (synchronisé si disponible, sinon local).
-- Les données exportées (si l’utilisateur lance un export) sont stockées localement et peuvent être téléchargées en CSV/JSON.
+## Données utilisées
+
+### 1) Correction d’images
+
+- L’extension inspecte/modifie localement certains attributs d’images (`src`, `srcset`, attributs lazy) afin de corriger des URLs cassées.
+- Elle ne lit pas les cookies ni tokens “pour les envoyer ailleurs”. Elle se contente de changer des URLs d’images.
+
+### 2) Export follow list
+
+- L’export lit des données depuis MangaPark en utilisant **ta session déjà connectée** (cookies gérés par le navigateur).
+- L’extension ne récupère pas ton mot de passe.
+- Les résultats exportés sont stockés localement puis téléchargeables en **JSON/CSV**.
+
+### 3) Migration assistée
+
+- Le panneau de migration ouvre des pages de recherche vers des services tiers (MangaDex, AniList, MAL, MangaUpdates).
+- **Aucune automatisation** sur ces sites : pas de login, pas de clic auto, pas d’ajout automatique.
+
+## Stockage (Chrome storage)
+
+L’extension utilise `chrome.storage` pour :
+
+- Préférences : activation, debug, whitelist
+- État export/migration : progression, items exportés, etc.
+
+Le stockage peut être **sync** (si disponible) ou **local** selon les politiques/quotas.
 
 ## Partage / transfert
 
-L’extension n’envoie aucune donnée à un serveur contrôlé par l’éditeur.  
-Certaines actions utilisateur ouvrent des pages sur des services tiers (ex: sites de recherche de migration).  
-L’export récupère la liste depuis le site via la session utilisateur.  
-Toutes les données exportées sont stockées localement.
+- **Aucun transfert** vers un serveur contrôlé par le mainteneur.
+- Le seul “transfert” est celui que tu déclenches : requêtes vers les sites cibles (MangaPark / services tiers) et téléchargement de fichiers exportés.
 
-## Détails des fonctionnalités
+## Rétention / suppression
 
-- **Correction d’images** : s’exécute localement et modifie uniquement certaines URLs d’images dans les pages pour corriger des images cassées.
-- **Export** : récupère la liste via la session utilisateur (si connecté) et enregistre les résultats localement.
-- **Migration assistée** : ouvre des pages de recherche sur des services tiers, sans automatiser d’actions sur ces sites.
+- Tu peux supprimer les données locales via les boutons **Clear** dans le popup/panneau.
+- Tu peux aussi supprimer le stockage de l’extension via `chrome://extensions` → “Détails” → “Effacer les données”.
 
-## Contact
+## Contact / sécurité
 
-Si vous publiez l’extension sur le Chrome Web Store, ajoutez ici votre email de support (optionnel).
+- Pour une vulnérabilité : voir [`SECURITY.md`](SECURITY.md).

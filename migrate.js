@@ -18,6 +18,15 @@
   // If sync storage is readable but not writable (quota / policy / transient), popup.js stores a marker locally.
   // Migration panel must respect it so it doesn't show an empty library when export data is stored locally.
   const CONFIG_STORAGE_MODE_KEY = "mp_config_storage_mode"; // "sync" | "local"
+  // MangaDex auto-match state (local-only behavior; safe for a public extension)
+  const MD_MATCH_STATE_KEY = "md_match_state";
+  const MD_MATCH_RESULTS_KEY = "md_match_results";
+  const MD_MATCH_CANCEL_KEY = "md_match_cancel";
+
+  const MD_API_BASE = "https://api.mangadex.org";
+  const MD_SITE_BASE = "https://mangadex.org";
+  const MD_MATCH_MIN_SCORE = 0.72;
+  const MD_THROTTLE_MS = 500; // keep it gentle for a public extension
 
   const DEFAULT_MIGRATE_STATE = {
     index: 0,
@@ -210,6 +219,11 @@
   let items = [];
   /** @type {{index:number, targetSite:string, openNewTab:boolean}} */
   let migrateState = { ...DEFAULT_MIGRATE_STATE };
+  /** @type {{status:string,index:number,total:number,matched:number,openIndex:number,updated_at?:string,error?:string}|null} */
+  let mdMatchState = null;
+  /** @type {any[]|null} */
+  let mdMatchResults = null;
+  let mdMatchRunning = false;
 
   function clampIndex(i) {
     if (!items.length) return 0;
@@ -291,6 +305,336 @@
     }
   }
 
+  function setMdMatchProgressText(text) {
+    const el = document.getElementById("mdMatchProgressText");
+    if (el) el.textContent = String(text || "-");
+  }
+
+  function setMdUiVisible(visible) {
+    const panel = document.getElementById("mdAutoMatchPanel");
+    if (!panel) return;
+    panel.style.display = visible ? "block" : "none";
+  }
+
+  function setMdButtonsState() {
+    const startBtn = document.getElementById("mdMatchStartBtn");
+    const pauseBtn = document.getElementById("mdMatchPauseBtn");
+    const openNextBtn = document.getElementById("mdOpenNextBtn");
+    const exportBtn = document.getElementById("mdExportMappingBtn");
+
+    const st = mdMatchState || { status: "idle", index: 0, total: items.length, matched: 0, openIndex: 0 };
+    const hasAny = Array.isArray(mdMatchResults) && mdMatchResults.length > 0;
+    const canOpenNext = hasAny;
+    const canExport = hasAny;
+    const isRunning = mdMatchRunning || st.status === "running";
+
+    if (startBtn) {
+      const startLabelKey =
+        st.status === "paused" ? "migMdMatchResumeBtn" : "migMdMatchStartBtn";
+      startBtn.textContent = t(startLabelKey) || (st.status === "paused" ? "Resume" : "Start");
+      startBtn.disabled = !items.length || isRunning;
+    }
+    if (pauseBtn) pauseBtn.disabled = !isRunning;
+    if (openNextBtn) openNextBtn.disabled = !canOpenNext;
+    if (exportBtn) exportBtn.disabled = !canExport;
+  }
+
+  async function getMdMatchStateFromStorage() {
+    const { data } = await getFromStorage([MD_MATCH_STATE_KEY, MD_MATCH_RESULTS_KEY]);
+    const st = data[MD_MATCH_STATE_KEY] && typeof data[MD_MATCH_STATE_KEY] === "object" ? data[MD_MATCH_STATE_KEY] : null;
+    const res = data[MD_MATCH_RESULTS_KEY];
+    const safeSt = {
+      status: typeof st?.status === "string" ? st.status : "idle",
+      index: typeof st?.index === "number" ? st.index : 0,
+      total: typeof st?.total === "number" ? st.total : 0,
+      matched: typeof st?.matched === "number" ? st.matched : 0,
+      openIndex: typeof st?.openIndex === "number" ? st.openIndex : 0,
+      updated_at: typeof st?.updated_at === "string" ? st.updated_at : "",
+      error: typeof st?.error === "string" ? st.error : "",
+    };
+    const safeRes = Array.isArray(res) ? res : null;
+    return { state: safeSt, results: safeRes };
+  }
+
+  async function persistMdMatchStateAndResults(state, results) {
+    const st = { ...(state || {}) };
+    st.updated_at = new Date().toISOString();
+    await setToStorage({
+      [MD_MATCH_STATE_KEY]: st,
+      ...(results ? { [MD_MATCH_RESULTS_KEY]: results } : {}),
+    });
+    mdMatchState = st;
+    if (results) mdMatchResults = results;
+  }
+
+  async function setMdCancelFlag(v) {
+    await setToStorage({ [MD_MATCH_CANCEL_KEY]: !!v });
+  }
+
+  async function isMdCancelRequested() {
+    try {
+      const { data } = await getFromStorage([MD_MATCH_CANCEL_KEY]);
+      return !!data[MD_MATCH_CANCEL_KEY];
+    } catch {
+      return false;
+    }
+  }
+
+  function pickBestMdTitle(attributes) {
+    const tObj = attributes && attributes.title && typeof attributes.title === "object" ? attributes.title : {};
+    const candidates = [];
+    if (typeof tObj.en === "string") candidates.push(tObj.en);
+    // pick any other language title as fallback
+    for (const v of Object.values(tObj)) {
+      if (typeof v === "string") candidates.push(v);
+    }
+    return candidates.find(Boolean) || "";
+  }
+
+  function extractAltTitles(attributes) {
+    const alt = attributes && Array.isArray(attributes.altTitles) ? attributes.altTitles : [];
+    const out = [];
+    for (const obj of alt) {
+      if (!obj || typeof obj !== "object") continue;
+      for (const v of Object.values(obj)) {
+        if (typeof v === "string" && v.trim()) out.push(v.trim());
+      }
+    }
+    return out;
+  }
+
+  function scoreMdCandidate(mpTitle, mdTitle, mdAltTitles) {
+    const base = U?.diceCoefficient ? U.diceCoefficient(mpTitle, mdTitle) : 0;
+    let best = base;
+    const alts = Array.isArray(mdAltTitles) ? mdAltTitles : [];
+    for (const a of alts) {
+      const s = U?.diceCoefficient ? U.diceCoefficient(mpTitle, a) : 0;
+      if (s > best) best = s;
+    }
+    return best;
+  }
+
+  async function mdFetchJson(url) {
+    // No auth headers in public mode. Per MangaDex guidance, only send Authorization to {api, auth}.mangadex.org when needed.
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { accept: "application/json" },
+      cache: "no-store",
+    });
+    const retryAfter = res.headers && typeof res.headers.get === "function" ? res.headers.get("retry-after") : null;
+    const retryAfterSeconds = retryAfter ? Number(retryAfter) : NaN;
+    const json = await res.json().catch(() => null);
+    return { ok: res.ok, status: res.status, retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : null, json };
+  }
+
+  async function mdSearchMangaByTitle(title) {
+    const q = String(title || "").trim();
+    if (!q) return [];
+
+    const params = new URLSearchParams();
+    params.set("title", q);
+    params.set("limit", "5");
+    params.set("order[relevance]", "desc");
+    // include all ratings so users with mixed libraries don't miss results
+    for (const r of ["safe", "suggestive", "erotica", "pornographic"]) params.append("contentRating[]", r);
+
+    const url = `${MD_API_BASE}/manga?${params.toString()}`;
+    // Basic backoff on 429
+    let attempt = 0;
+    while (attempt < 3) {
+      attempt += 1;
+      const r = await mdFetchJson(url);
+      if (r.ok && r.json && Array.isArray(r.json.data)) return r.json.data;
+      if (r.status === 429) {
+        const waitMs = (r.retryAfterSeconds != null ? r.retryAfterSeconds * 1000 : 3000);
+        await new Promise((x) => setTimeout(x, Math.min(15000, Math.max(1000, waitMs))));
+        continue;
+      }
+      // On other errors, bail out; caller handles pause.
+      throw new Error(`MD_HTTP_${r.status || "ERR"}`);
+    }
+    throw new Error("MD_HTTP_429");
+  }
+
+  async function mdRunAutoMatch() {
+    if (mdMatchRunning) return;
+    if (!items.length) return;
+    if (migrateState.targetSite !== "mangadex") return;
+
+    mdMatchRunning = true;
+    setError("");
+    setMdButtonsState();
+
+    try {
+      await setMdCancelFlag(false);
+
+      // Load existing
+      if (!mdMatchState || !Array.isArray(mdMatchResults)) {
+        const { state, results } = await getMdMatchStateFromStorage();
+        mdMatchState = state;
+        mdMatchResults = results || [];
+      }
+
+      // Ensure array length matches items length
+      if (!Array.isArray(mdMatchResults)) mdMatchResults = [];
+      if (mdMatchResults.length < items.length) {
+        mdMatchResults.length = items.length;
+      }
+
+      const st = mdMatchState || { status: "idle", index: 0, total: items.length, matched: 0, openIndex: 0 };
+      const startIndex = st.status === "paused" || st.status === "running" ? Math.max(0, st.index) : 0;
+      let matched = typeof st.matched === "number" ? st.matched : 0;
+
+      await persistMdMatchStateAndResults(
+        { ...st, status: "running", total: items.length, index: startIndex, matched, openIndex: st.openIndex || 0, error: "" },
+        null
+      );
+
+      for (let i = startIndex; i < items.length; i += 1) {
+        if (await isMdCancelRequested()) {
+          await persistMdMatchStateAndResults({ ...mdMatchState, status: "paused", index: i }, mdMatchResults);
+          setMdMatchProgressText(t("migMdAutoMatchPaused") || "Paused");
+          return;
+        }
+
+        const it = items[i] || {};
+        const mpTitle = String(it.title || "").trim();
+        if (!mpTitle) {
+          mdMatchResults[i] = { mpTitle: "", md: null, score: 0, candidates: [] };
+          continue;
+        }
+
+        // Skip already processed entries
+        if (mdMatchResults[i] && typeof mdMatchResults[i] === "object" && mdMatchResults[i].processed) {
+          continue;
+        }
+
+        const data = await mdSearchMangaByTitle(mpTitle);
+        const candidates = [];
+        let best = null;
+        let bestScore = 0;
+
+        for (const row of data || []) {
+          const id = row && typeof row.id === "string" ? row.id : "";
+          const attr = row && row.attributes ? row.attributes : null;
+          if (!id || !attr) continue;
+          const mdTitle = pickBestMdTitle(attr);
+          const alt = extractAltTitles(attr);
+          const score = scoreMdCandidate(mpTitle, mdTitle, alt);
+          const cand = { id, title: mdTitle, score: Math.round(score * 1000) / 1000 };
+          candidates.push(cand);
+          if (score > bestScore) {
+            bestScore = score;
+            best = cand;
+          }
+        }
+
+        if (best && bestScore >= MD_MATCH_MIN_SCORE) matched += 1;
+
+        mdMatchResults[i] = {
+          processed: true,
+          mpTitle,
+          mpUrl: String(it.mangapark_url || ""),
+          md: best ? { id: best.id, title: best.title } : null,
+          score: Math.round(bestScore * 1000) / 1000,
+          candidates: candidates.slice(0, 5),
+        };
+
+        // Persist periodically
+        if (i % 10 === 0 || i === items.length - 1) {
+          await persistMdMatchStateAndResults({ ...mdMatchState, status: "running", index: i, matched }, mdMatchResults);
+        } else {
+          // cheap state update (no write)
+          mdMatchState = { ...(mdMatchState || {}), status: "running", index: i, matched };
+        }
+
+        const pct = Math.round(((i + 1) / items.length) * 100);
+        setMdMatchProgressText(
+          t("migMdAutoMatchProgressFmt", [String(i + 1), String(items.length), String(pct), String(matched)]) ||
+            `${i + 1}/${items.length} — ${pct}% — matched: ${matched}`
+        );
+        setMdButtonsState();
+
+        await new Promise((x) => setTimeout(x, MD_THROTTLE_MS));
+      }
+
+      await persistMdMatchStateAndResults({ ...(mdMatchState || {}), status: "done", index: items.length, matched }, mdMatchResults);
+      setMdMatchProgressText(t("migMdAutoMatchDone") || "Done");
+    } catch (e) {
+      const msg = e && e.message ? String(e.message) : String(e);
+      await persistMdMatchStateAndResults({ ...(mdMatchState || {}), status: "paused", error: msg }, mdMatchResults);
+      setMdMatchProgressText((t("migMdAutoMatchErrorFmt", [msg]) || `Error: ${msg}`).slice(0, 200));
+    } finally {
+      mdMatchRunning = false;
+      setMdButtonsState();
+    }
+  }
+
+  async function mdPauseAutoMatch() {
+    await setMdCancelFlag(true);
+  }
+
+  function mdTitlePageUrl(id) {
+    return id ? `${MD_SITE_BASE}/title/${id}` : "";
+  }
+
+  async function mdOpenNextMatch() {
+    setError("");
+    if (!Array.isArray(mdMatchResults) || !mdMatchResults.length) return;
+
+    // Load state if needed
+    if (!mdMatchState) {
+      const { state, results } = await getMdMatchStateFromStorage();
+      mdMatchState = state;
+      mdMatchResults = results || mdMatchResults;
+    }
+
+    let idx = typeof mdMatchState.openIndex === "number" ? mdMatchState.openIndex : 0;
+    idx = Math.max(0, Math.min(mdMatchResults.length, idx));
+
+    // Find next processed entry with a decent match; fallback to search if none.
+    let target = null;
+    for (let i = idx; i < mdMatchResults.length; i += 1) {
+      const r = mdMatchResults[i];
+      if (!r || !r.processed) continue;
+      const md = r.md && typeof r.md === "object" ? r.md : null;
+      const score = typeof r.score === "number" ? r.score : 0;
+      if (md && md.id && score >= MD_MATCH_MIN_SCORE) {
+        target = { type: "title", url: mdTitlePageUrl(md.id), at: i };
+        break;
+      }
+    }
+
+    if (!target) {
+      // fallback: open search for current migrate item
+      const current = items[migrateState.index] || {};
+      const url = buildSearchUrl("mangadex", current.title);
+      openUrl(url);
+      return;
+    }
+
+    openUrl(target.url);
+    const nextOpen = target.at + 1;
+    await persistMdMatchStateAndResults({ ...(mdMatchState || {}), openIndex: nextOpen }, null);
+    setMdButtonsState();
+  }
+
+  function mdExportMapping() {
+    if (!Array.isArray(mdMatchResults) || !mdMatchResults.length) return;
+    const captured = exportPayload?.meta?.captured_at || new Date().toISOString();
+    const file = `mangadex_mapping_${captured.replace(/[:.]/g, "-")}.json`;
+    const payload = {
+      meta: {
+        created_at: new Date().toISOString(),
+        source: "mangapark-image-fix-extension",
+        total: items.length,
+        matched_threshold: MD_MATCH_MIN_SCORE,
+      },
+      results: mdMatchResults,
+    };
+    downloadBlob(file, "application/json;charset=utf-8", JSON.stringify(payload, null, 2));
+  }
+
   function csvEscape(value) {
     return U?.csvEscape ? U.csvEscape(value) : String(value ?? "");
   }
@@ -335,6 +679,7 @@
     if (!items.length) {
       if (empty) empty.style.display = "block";
       if (panel) panel.style.display = "none";
+      setMdUiVisible(false);
       const idx = $("indexLabel");
       if (idx) idx.textContent = "0/0";
       return;
@@ -435,6 +780,10 @@
     if (expJson) expJson.disabled = !items.length;
 
     renderQueue();
+
+    // Auto-match panel: MangaDex only
+    setMdUiVisible(migrateState.targetSite === "mangadex");
+    setMdButtonsState();
   }
 
   function renderQueue() {
@@ -512,6 +861,26 @@
     };
     migrateState.index = clampIndex(migrateState.index);
 
+    // Load MangaDex match state (best-effort)
+    try {
+      const { state, results } = await getMdMatchStateFromStorage();
+      mdMatchState = state;
+      mdMatchResults = results;
+      const st2 = mdMatchState || { status: "idle", index: 0, total: items.length, matched: 0, openIndex: 0 };
+      if (migrateState.targetSite === "mangadex") {
+        const done = st2.status === "done";
+        const pct = st2.total ? Math.round(((Math.min(st2.index, st2.total)) / st2.total) * 100) : 0;
+        setMdMatchProgressText(
+          done
+            ? (t("migMdAutoMatchDone") || "Done")
+            : (t("migMdAutoMatchProgressFmt", [String(st2.index || 0), String(items.length), String(pct), String(st2.matched || 0)]) ||
+                `${st2.index || 0}/${items.length} — ${pct}% — matched: ${st2.matched || 0}`)
+        );
+      }
+    } catch {
+      // no-op
+    }
+
     // initialize controls
     const sel = $("targetSite");
     if (sel) sel.value = migrateState.targetSite;
@@ -569,6 +938,8 @@
     $("targetSite")?.addEventListener("change", async (e) => {
       migrateState.targetSite = String(e.target.value || "mangadex");
       await persistMigrateState();
+      // Refresh auto-match panel visibility + labels
+      render();
     });
 
     $("openNewTab")?.addEventListener("change", async (e) => {
@@ -642,6 +1013,20 @@
 
     $("exportJsonBtn")?.addEventListener("click", async () => {
       exportAsJson();
+    });
+
+    // MangaDex auto-match controls (safe: no auth, no writes to MangaDex)
+    document.getElementById("mdMatchStartBtn")?.addEventListener("click", async () => {
+      await mdRunAutoMatch();
+    });
+    document.getElementById("mdMatchPauseBtn")?.addEventListener("click", async () => {
+      await mdPauseAutoMatch();
+    });
+    document.getElementById("mdOpenNextBtn")?.addEventListener("click", async () => {
+      await mdOpenNextMatch();
+    });
+    document.getElementById("mdExportMappingBtn")?.addEventListener("click", () => {
+      mdExportMapping();
     });
 
     // Live updates if export list changes elsewhere
