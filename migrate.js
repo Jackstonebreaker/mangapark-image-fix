@@ -294,8 +294,31 @@
     return U?.buildSearchUrl ? U.buildSearchUrl(siteId, title) : "";
   }
 
+  function isSafeHttpUrl(url) {
+    try {
+      const raw = String(url || "").trim();
+      if (!raw) return false;
+      const u = new URL(raw, window.location.href);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+
   function openUrl(url) {
-    if (!url) return;
+    if (!isSafeHttpUrl(url)) {
+      // Guardrail: if storage data was corrupted/poisoned, don't open dangerous schemes.
+      try {
+        showToast(
+          "error",
+          t("migToastInvalidUrlTitle") || "Invalid link",
+          t("migToastInvalidUrlDesc") || "This link could not be opened."
+        );
+      } catch {
+        // no-op
+      }
+      return;
+    }
     // Publishable constraint: NO chrome.tabs.* usage here.
     if (migrateState.openNewTab) {
       try {
@@ -984,7 +1007,8 @@
         const it = items[i] || {};
         const mpTitle = String(it.title || "").trim();
         if (!mpTitle) {
-          mdMatchResults[i] = { mpTitle: "", md: null, score: 0, candidates: [] };
+          // Mark as processed to avoid re-processing empty titles on every run.
+          mdMatchResults[i] = { processed: true, mpTitle: "", md: null, score: 0, candidates: [] };
           continue;
         }
 
@@ -1188,7 +1212,7 @@
     if (sourceLink) {
       const url = String(current.mangapark_url || "");
       sourceLink.textContent = url || "-";
-      if (url) {
+      if (url && isSafeHttpUrl(url)) {
         sourceLink.setAttribute("href", url);
         sourceLink.removeAttribute("aria-disabled");
         sourceLink.tabIndex = 0;
