@@ -3,7 +3,7 @@
   "name": "MangaPark Toolkit",
   "version": "1.0.0",
   "default_locale": "en",
-  "description": "Fix broken chapter images by rewriting s00–s10 /media URLs to the current domain. Includes toggle, debug, allowed sites, and a one-shot 'Fix this page'.",
+  "description": "Fix broken MangaPark images (s00–s10 /media), export follow list (CSV/JSON), and use migration tools.",
   "homepage_url": "https://github.com/Jackstonebreaker/mangapark-image-fix",
   "action": {
     "default_title": "MangaPark Toolkit",
