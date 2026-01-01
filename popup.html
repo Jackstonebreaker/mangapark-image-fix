@@ -1,0 +1,1319 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MangaPark Toolkit</title>
+    <style>
+      /*
+        DESIGN SOURCE OF TRUTH:
+        - Figma Make: App.tsx + components + styles/theme.css tokens
+        - Plain HTML/CSS replica (Chrome popup constraints: 380px width, max height 600px)
+      */
+
+      /* --- Theme tokens (matches Downloads/src/styles/theme.css) --- */
+      :root {
+        color-scheme: light dark;
+
+        --font-size: 16px;
+        --background: #ffffff;
+        --foreground: oklch(0.145 0 0);
+
+        --card: #ffffff;
+        --card-foreground: oklch(0.145 0 0);
+
+        --muted: #ececf0;
+        --muted-foreground: #717182;
+
+        --accent: #e9ebef;
+        --danger: #d4183d;
+
+        --secondary: oklch(0.95 0.0058 264.53);
+        --secondary-foreground: #030213;
+
+        --border: rgba(0, 0, 0, 0.1);
+        --input: transparent;
+        --input-background: #f3f3f5;
+
+        --destructive: #d4183d;
+
+        --radius: 0.625rem;
+      }
+
+      /* Match Make: dark theme is applied via .dark class */
+      .dark {
+        --background: oklch(0.145 0 0);
+        --foreground: oklch(0.985 0 0);
+
+        --card: oklch(0.145 0 0);
+        --card-foreground: oklch(0.985 0 0);
+
+        --muted: oklch(0.269 0 0);
+        --muted-foreground: oklch(0.708 0 0);
+
+        --accent: oklch(0.269 0 0);
+        --danger: oklch(0.396 0.141 25.723);
+
+        --secondary: oklch(0.269 0 0);
+        --secondary-foreground: oklch(0.985 0 0);
+
+        --border: oklch(0.269 0 0);
+        --input: oklch(0.269 0 0);
+
+        --destructive: oklch(0.396 0.141 25.723);
+      }
+
+      /* --- Base (approximates Make tailwind base) --- */
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: var(--font-size);
+      }
+
+      body {
+        margin: 0;
+        width: 380px;
+        max-height: 600px;
+        overflow-y: auto;
+        background: var(--background);
+        color: var(--foreground);
+        font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+
+      h1 {
+        font-size: 18px;
+        font-weight: 500;
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      h2 {
+        font-size: 16px;
+        font-weight: 500;
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      h3 {
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      /* Layout helpers (tailwind-like, only what Make uses) */
+      .min-h-screen {
+        min-height: 100vh;
+      }
+
+      .bg-background {
+        background: var(--background);
+      }
+
+      .text-foreground {
+        color: var(--foreground);
+      }
+
+      .w-380 {
+        width: 380px;
+      }
+
+      .max-h-600 {
+        max-height: 600px;
+      }
+
+      .overflow-y-auto {
+        overflow-y: auto;
+      }
+
+      .px-4 {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      .pt-4 {
+        padding-top: 16px;
+      }
+
+      .pb-4 {
+        padding-bottom: 16px;
+      }
+
+      .space-y-4 > * + * {
+        margin-top: 16px;
+      }
+
+      .space-y-3 > * + * {
+        margin-top: 12px;
+      }
+
+      .space-y-2_5 > * + * {
+        margin-top: 10px;
+      }
+
+      .space-y-2 > * + * {
+        margin-top: 8px;
+      }
+
+      .mb-1 {
+        margin-bottom: 4px;
+      }
+
+      .mb-2 {
+        margin-bottom: 8px;
+      }
+
+      .mb-3 {
+        margin-bottom: 12px;
+      }
+
+      .mb-4 {
+        margin-bottom: 16px;
+      }
+
+      .mt-2 {
+        margin-top: 8px;
+      }
+
+      .mt-3 {
+        margin-top: 12px;
+      }
+
+      .mt-4 {
+        margin-top: 16px;
+      }
+
+      .pt-3 {
+        padding-top: 12px;
+      }
+
+      .pt-4 {
+        padding-top: 16px;
+      }
+
+      .pb-6 {
+        padding-bottom: 24px;
+      }
+
+      .pt-6 {
+        padding-top: 24px;
+      }
+
+      .border-t {
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+      }
+
+      .dark .border-t {
+        border-color: rgba(255, 255, 255, 0.12);
+      }
+
+      /* --- Components (Header/Card/AnimatedButton/ToggleSwitch/ProgressBar) --- */
+
+      /* Header (matches Downloads/src/app/components/Header.tsx) */
+      .Header {
+        background: var(--background);
+      }
+
+      .HeaderNav {
+        padding: 10px 16px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      }
+
+      .dark .HeaderNav {
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+      }
+
+      .HeaderNavRow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .BackSpacer {
+        width: 68px;
+      }
+
+      .BackBtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 0;
+        background: transparent;
+        color: var(--muted-foreground);
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .BackBtn:hover {
+        background: rgba(0, 0, 0, 0.06);
+        color: var(--foreground);
+      }
+
+      .dark .BackBtn:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .StepIndicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .Step {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .StepDot {
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 600;
+        transition: background 120ms ease, color 120ms ease;
+        background: rgba(0, 0, 0, 0.10);
+        color: rgba(0, 0, 0, 0.45);
+      }
+
+      .dark .StepDot {
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.35);
+      }
+
+      .StepDot.active {
+        background: #2563eb;
+        color: white;
+      }
+
+      .dark .StepDot.active {
+        background: #3b82f6;
+      }
+
+      .StepDot.done {
+        background: #22c55e;
+        color: white;
+      }
+
+      .StepLabel {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted-foreground);
+      }
+
+      .StepLabel.active {
+        color: var(--foreground);
+      }
+
+      .StepLabel.done {
+        color: #15803d;
+      }
+
+      .dark .StepLabel.done {
+        color: #4ade80;
+      }
+
+      .StepLine {
+        width: 12px;
+        height: 2px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.10);
+      }
+
+      .dark .StepLine {
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .StepLine.done {
+        background: #4ade80;
+      }
+
+      .dark .StepLine.done {
+        background: #16a34a;
+      }
+
+      .HeaderTitle {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      }
+
+      .dark .HeaderTitle {
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+      }
+
+      .HeaderSubtitle {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--muted-foreground);
+      }
+
+      /* ThemeToggle */
+      #themeToggleBtn {
+        border: 0;
+        background: rgba(0, 0, 0, 0.04);
+        color: var(--foreground);
+        border-radius: 10px;
+        padding: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .dark #themeToggleBtn {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      #themeToggleBtn:hover {
+        background: rgba(0, 0, 0, 0.08);
+      }
+
+      .dark #themeToggleBtn:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      /* Inline Lucide-like SVG helpers (no external deps) */
+      .Icon {
+        width: 20px;
+        height: 20px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex: 0 0 auto;
+      }
+
+      .IconSm {
+        width: 16px;
+        height: 16px;
+      }
+
+      .IconBox {
+        padding: 8px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .IconBox.blue { background: rgba(37,99,235,0.08); color: #2563eb; }
+      .dark .IconBox.blue { background: rgba(37,99,235,0.18); color: #60a5fa; }
+      .IconBox.green { background: rgba(34,197,94,0.10); color: #16a34a; }
+      .dark .IconBox.green { background: rgba(34,197,94,0.18); color: #4ade80; }
+      .IconBox.purple { background: rgba(168,85,247,0.10); color: #7c3aed; }
+      .dark .IconBox.purple { background: rgba(168,85,247,0.18); color: #c084fc; }
+      .IconBox.gray { background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.55); }
+      .dark .IconBox.gray { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.65); }
+      .IconBox.amber { background: rgba(245,158,11,0.10); color: #d97706; }
+      .dark .IconBox.amber { background: rgba(245,158,11,0.16); color: #fbbf24; }
+
+      /* Theme icon swap */
+      .ThemeIconSun { display: none; }
+      .dark .ThemeIconSun { display: inline; }
+      .dark .ThemeIconMoon { display: none; }
+
+      /* Card */
+      .Card {
+        background: var(--card);
+        color: var(--card-foreground);
+        border-radius: 10px;
+        padding: 16px;
+        border: 1px solid rgba(0, 0, 0, 0.10);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      }
+
+      .dark .Card {
+        background: oklch(0.20 0 0);
+        border-color: rgba(255, 255, 255, 0.12);
+      }
+
+      /* AnimatedButton visual variants */
+      .Btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: auto;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 0;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 120ms ease;
+      }
+
+      .Btn.fullWidth {
+        width: 100%;
+      }
+
+      .Btn.primary {
+        background: #2563eb;
+        color: white;
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.20);
+      }
+
+      .Btn.primary:hover {
+        background: #3b82f6;
+      }
+
+      .Btn.secondary {
+        background: var(--secondary);
+        color: var(--secondary-foreground);
+      }
+
+      .Btn.ghost {
+        background: transparent;
+        color: var(--foreground);
+      }
+
+      .Btn.ghost:hover {
+        background: rgba(0, 0, 0, 0.06);
+      }
+
+      .dark .Btn.ghost:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .Btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ToggleSwitch (checkbox preserved for popup.js wiring) */
+      .ToggleSwitch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .Toggle {
+        position: relative;
+        width: 44px;
+        height: 24px;
+      }
+
+      .Toggle input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        cursor: pointer;
+        /* Ensure the invisible checkbox receives clicks (Track/Thumb are visual only) */
+        z-index: 2;
+      }
+
+      .ToggleTrack {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: var(--muted);
+        transition: background 120ms ease;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .ToggleThumb {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        background: #ffffff;
+        transition: transform 120ms ease;
+        pointer-events: none;
+      }
+
+      .Toggle input:checked + .ToggleTrack {
+        background: #2563eb;
+      }
+
+      .Toggle input:checked + .ToggleTrack .ToggleThumb {
+        transform: translateX(20px);
+      }
+
+      /* ProgressBar */
+      .ProgressBar {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--muted);
+      }
+
+      .ProgressFill {
+        height: 100%;
+        width: 0%;
+        background: #3b82f6;
+        transition: width 160ms ease;
+      }
+
+      /* Screen switching */
+      .screen {
+        display: none;
+      }
+
+      .screen.active {
+        display: block;
+      }
+
+      /* Utility text */
+      .text-xs {
+        font-size: 12px;
+      }
+
+      .text-sm {
+        font-size: 13px;
+      }
+
+      .text-muted {
+        color: var(--muted-foreground);
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      .rounded-md {
+        border-radius: 8px;
+      }
+
+      .bg-gray-50 {
+        background: rgba(0, 0, 0, 0.04);
+      }
+
+      .dark .bg-gray-50 {
+        background: oklch(0.18 0 0);
+      }
+
+      .p-2_5 {
+        padding: 10px;
+      }
+
+      .p-3 {
+        padding: 12px;
+      }
+
+      .flex {
+        display: flex;
+      }
+
+      .items-start {
+        align-items: flex-start;
+      }
+
+      .items-center {
+        align-items: center;
+      }
+
+      .justify-between {
+        justify-content: space-between;
+      }
+
+      .gap-2 {
+        gap: 8px;
+      }
+
+      .gap-3 {
+        gap: 12px;
+      }
+
+      .flex-1 {
+        flex: 1;
+      }
+
+      .grid {
+        display: grid;
+      }
+
+      .grid-cols-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      /* Visually hidden (to keep legacy IDs without displaying yet) */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+
+      /* Cursor-only cards (styled to match Make) */
+      .Field {
+        width: 100%;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.18);
+        background: #fff;
+        color: var(--foreground);
+      }
+      .dark .Field {
+        background: var(--input);
+        border-color: var(--border);
+      }
+
+      .List {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 160px;
+        overflow: auto;
+      }
+
+      .ListItem {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(0, 0, 0, 0.04);
+      }
+      .dark .ListItem {
+        border-color: rgba(255, 255, 255, 0.12);
+        background: oklch(0.18 0 0);
+      }
+
+      /* Whitelist list items (popup.js uses className="item" + button className="danger") */
+      .List .item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(0, 0, 0, 0.04);
+      }
+      .dark .List .item {
+        border-color: rgba(255, 255, 255, 0.12);
+        background: oklch(0.18 0 0);
+      }
+      .List .item code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        color: var(--foreground);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .List .item .danger {
+        border: 0;
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+        background: rgba(220, 38, 38, 0.10);
+        color: rgba(220, 38, 38, 1);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .List .item .danger:hover {
+        background: rgba(220, 38, 38, 0.16);
+      }
+      .dark .List .item .danger {
+        background: rgba(248, 113, 113, 0.16);
+        color: rgba(248, 113, 113, 1);
+      }
+
+      .ErrorText {
+        display: none;
+        margin-top: 8px;
+        font-size: 12px;
+        color: #dc2626;
+      }
+      .dark .ErrorText {
+        color: #f87171;
+      }
+
+      /* Whitelist: host allowed pill (readability, no behavior change) */
+      .HostAllowed {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(0, 0, 0, 0.04);
+        font-size: 11px;
+        line-height: 1.4;
+        vertical-align: middle;
+      }
+      .dark .HostAllowed {
+        border-color: rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" class="min-h-screen bg-background text-foreground">
+      <div class="w-380 max-h-600 overflow-y-auto">
+        <!-- SCREEN: HOME (App.tsx default render) -->
+        <div id="screenHome" class="screen active">
+          <!-- Header (currentStep=1, showBackButton=false, title=default) -->
+          <div class="Header bg-background">
+            <div class="HeaderNav">
+              <div class="HeaderNavRow">
+                <div class="BackSpacer"></div>
+
+                <div class="StepIndicator" aria-label="Steps">
+                  <div class="Step">
+                    <div id="stepDot1" class="StepDot active">1</div>
+                    <span class="StepLabel active" data-i18n="stepFix">Fix</span>
+                  </div>
+                  <div id="stepLine1" class="StepLine"></div>
+                  <div class="Step">
+                    <div id="stepDot2" class="StepDot">2</div>
+                    <span class="StepLabel" data-i18n="stepExport">Export</span>
+                  </div>
+                  <div id="stepLine2" class="StepLine"></div>
+                  <div class="Step">
+                    <div id="stepDot3" class="StepDot">3</div>
+                    <span class="StepLabel" data-i18n="stepMigration">Migration</span>
+                  </div>
+                </div>
+
+                <div class="BackSpacer" style="display:flex; justify-content:flex-end;">
+                  <button id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle theme" data-i18n-aria-label="themeToggleAria" data-i18n-title="themeToggleTitle">
+                    <!-- Moon -->
+                    <svg class="Icon ThemeIconMoon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
+                    </svg>
+                    <!-- Sun -->
+                    <svg class="Icon ThemeIconSun" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="4"></circle>
+                      <path d="M12 2v2"></path>
+                      <path d="M12 20v2"></path>
+                      <path d="M4.93 4.93l1.41 1.41"></path>
+                      <path d="M17.66 17.66l1.41 1.41"></path>
+                      <path d="M2 12h2"></path>
+                      <path d="M20 12h2"></path>
+                      <path d="M6.34 17.66l-1.41 1.41"></path>
+                      <path d="M19.07 4.93l-1.41 1.41"></path>
+                    </svg>
+                    <span class="sr-only" data-i18n="themeToggleAria">Toggle theme</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="HeaderTitle">
+              <h1 data-i18n="popupTitle">MangaPark Toolkit</h1>
+              <p class="HeaderSubtitle" data-i18n="headerSubtitle">Your library stays yours—everything runs on your device</p>
+            </div>
+          </div>
+
+          <div class="px-4 pb-4 pt-4 space-y-4">
+            <!-- Section 1 — Image Fix -->
+            <div class="Card">
+              <div class="flex items-start gap-3 mb-3">
+                <div class="IconBox blue" aria-hidden="true">
+                  <!-- Image icon -->
+                  <svg class="Icon" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <path d="M21 15l-5-5L5 21"></path>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h3 class="mb-1" data-i18n="sectionFixTitle">Fix Broken Images</h3>
+                  <p class="text-xs text-muted" data-i18n="sectionFixDesc">Automatically repairs images that don't load properly</p>
+                </div>
+                <div class="ToggleSwitch">
+                  <div class="Toggle">
+                    <input id="enabledToggle" type="checkbox" aria-label="Fix Broken Images" />
+                    <div class="ToggleTrack"><div class="ToggleThumb"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-gray-50 rounded-md p-2_5">
+                <p class="text-xs" style="color: var(--muted-foreground);">
+                  <span data-i18n="sectionFixHint">Works silently in the background while you read. No setup needed.</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Section 2 — Fix this page -->
+            <div class="Card">
+              <div class="flex items-start gap-3 mb-3">
+                <div class="IconBox blue" aria-hidden="true">
+                  <!-- Image icon -->
+                  <svg class="Icon" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <path d="M21 15l-5-5L5 21"></path>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h3 class="mb-1" data-i18n="fixNowTitle">Fix this page</h3>
+                  <p class="text-xs text-muted" data-i18n="fixNowDesc">Run the image fix once on the current tab.</p>
+                </div>
+              </div>
+              <button id="fixNowBtn" type="button" class="Btn primary fullWidth" data-i18n="fixNowBtn">Fix this page now</button>
+              <p id="fixNowHelper" class="text-xs text-muted mt-2" data-i18n="fixNowUnsupportedHelper" style="display:none;">
+                This action is available only on supported MangaPark domains.
+              </p>
+            </div>
+
+            <div class="border-t"></div>
+
+            <!-- Section 3 — Export Library -->
+            <div class="Card">
+              <div class="flex items-start gap-3 mb-3">
+                <div class="IconBox green" aria-hidden="true">
+                  <!-- Download icon -->
+                  <svg class="Icon" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <path d="M7 10l5 5 5-5"></path>
+                    <path d="M12 15V3"></path>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h3 class="mb-1" data-i18n="sectionExportTitle">Save Your Library</h3>
+                  <p class="text-xs text-muted" data-i18n="sectionExportDesc">Create a backup of your followed manga on your computer</p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 mb-3" style="padding: 8px 12px; background: rgba(0,0,0,0.04); border-radius: 8px;">
+                <div style="width: 10px; height: 10px; border-radius: 999px; background: rgba(0,0,0,0.25);"></div>
+                <span class="text-xs text-muted"><span data-i18n="exportHomeStatusLabel">Status:</span> <span style="color: var(--foreground); font-weight: 500;" data-i18n="exportHomeStatusReady">Ready when you are</span></span>
+              </div>
+
+              <div class="bg-gray-50 rounded-md p-3 mb-3">
+                <p class="text-xs" style="color: var(--muted-foreground); line-height: 1.45;">
+                  <span data-i18n="exportHomeHint">We'll open your library and save your manga list to your device. Takes a few minutes. You can close this window anytime.</span>
+                </p>
+              </div>
+
+              <div class="space-y-2 mb-3">
+                <button id="exportStartBtn" type="button" class="Btn primary fullWidth" data-i18n="exportStartBtn">Save My Library</button>
+
+                <p class="text-xs text-center text-muted" style="padding: 0 8px; line-height: 1.45;">
+                  <span data-i18n="exportPrivacyHint">Everything stays private. Nothing leaves your computer.</span>
+                </p>
+
+                <button id="exportResumeBtn" type="button" class="Btn ghost fullWidth text-sm" data-i18n="exportResumeBtn" disabled>Continue Previous Save</button>
+                <p id="exportResumeHint" class="text-xs text-center text-muted" data-i18n="exportResumeHint_none">Nothing to resume</p>
+              </div>
+
+              <div style="background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.18); border-radius: 8px; padding: 10px;">
+                <p class="text-xs" style="color: rgba(21,128,61,1);">
+                  <strong data-i18n="exportSafePrivateLabel">Safe &amp; Private:</strong> <span data-i18n="exportSafePrivateText">Your MangaPark account stays unchanged • All files saved locally</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Section 4 — Migration Tools -->
+            <div class="Card">
+              <div class="flex items-start gap-3 mb-3">
+                <div class="IconBox purple" aria-hidden="true">
+                  <!-- ArrowRightLeft icon -->
+                  <svg class="Icon" viewBox="0 0 24 24">
+                    <path d="M16 3h5v5"></path>
+                    <path d="M21 3l-7 7"></path>
+                    <path d="M8 21H3v-5"></path>
+                    <path d="M3 21l7-7"></path>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h3 class="mb-1" data-i18n="sectionMigrationTitle">Move to Another Site</h3>
+                  <p class="text-xs text-muted" style="line-height: 1.45;">
+                    <span data-i18n="sectionMigrationDesc">Find your manga on other sites, one at a time. You add them manually.</span>
+                  </p>
+                </div>
+              </div>
+
+              <div class="bg-gray-50 rounded-md p-3 mb-3">
+                <p class="text-xs" style="color: var(--muted-foreground); line-height: 1.45;">
+                  <span data-i18n="migrationHomeHint">Opens a helper tool that searches MangaDex, AniList, or MyAnimeList for each title. You decide what to add.</span>
+                </p>
+              </div>
+
+              <button id="openMigrationPanelBtn" type="button" class="Btn secondary fullWidth" style="margin-bottom: 12px;" data-i18n="migrationOpenPanelBtn">Open Helper Tool</button>
+
+              <div class="flex items-center justify-between text-xs" style="padding: 0 4px;">
+                <span class="text-muted" data-i18n="migrationStoredItemsLabel">Manga ready to search:</span>
+                <span id="migrationStoredItems" style="color: var(--muted-foreground);" data-i18n="migrationStoredItemsEmpty">Save your library first</span>
+              </div>
+
+              <!-- Keep migration target controls for existing logic (hidden for now; styled later) -->
+              <div class="sr-only" aria-hidden="true">
+                <select id="migrationTargetSite"></select>
+                <input id="migrationOpenNewTab" type="checkbox" />
+              </div>
+            </div>
+
+            <div class="border-t"></div>
+
+            <!-- Settings Menu -->
+            <div class="Card">
+              <div class="flex items-start gap-3 mb-4">
+                <div class="IconBox gray" aria-hidden="true">
+                  <!-- Settings2 icon -->
+                  <svg class="Icon" viewBox="0 0 24 24">
+                    <path d="M4 21v-7"></path>
+                    <path d="M4 10V3"></path>
+                    <path d="M12 21v-9"></path>
+                    <path d="M12 8V3"></path>
+                    <path d="M20 21v-5"></path>
+                    <path d="M20 12V3"></path>
+                    <path d="M2 14h4"></path>
+                    <path d="M10 8h4"></path>
+                    <path d="M18 16h4"></path>
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h3 class="mb-1" data-i18n="settingsTitle">Settings</h3>
+                  <p class="text-xs text-muted" data-i18n="settingsDesc">Customize your experience</p>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <div>
+                  <label style="display:block; font-size: 13px; font-weight: 500; margin-bottom: 8px;" data-i18n="settingsAppLanguageLabel">App language</label>
+                  <select id="uiLang" aria-label="App language" style="width:100%; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.18); background: #fff; color: var(--foreground);">
+                    <!-- Options filled by popup.js -->
+                  </select>
+                  <p class="text-xs text-muted" style="margin-top: 6px;" data-i18n="settingsAppLanguageHint">Changes the extension interface language</p>
+                </div>
+
+                <div class="border-t" style="border-top-color: rgba(0,0,0,0.12);"></div>
+
+                <div class="flex items-center justify-between">
+                  <div class="flex-1">
+                    <label style="font-size: 13px; font-weight: 500;" data-i18n="debugTitle">Debug Mode</label>
+                    <p class="text-xs text-muted" data-i18n="debugDesc">Shows technical details in your browser console</p>
+                  </div>
+                  <div class="ToggleSwitch">
+                    <div class="Toggle">
+                      <input id="debugToggle" type="checkbox" aria-label="Debug Mode" />
+                      <div class="ToggleTrack"><div class="ToggleThumb"></div></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="border-t" style="border-top-color: rgba(0,0,0,0.12);"></div>
+
+                <div>
+                  <div class="flex items-start gap-3 mb-2">
+                    <div class="flex-1">
+                      <label style="display:block; font-size: 13px; font-weight: 600;" data-i18n="whitelistTitle">Allowed sites</label>
+                      <p class="text-xs text-muted" data-i18n="whitelistDesc">Control which sites auto-run the fix</p>
+                    </div>
+                  </div>
+
+                  <div class="bg-gray-50 rounded-md p-2_5 mb-2">
+                    <p class="text-xs" style="color: var(--muted-foreground);">
+                      <span data-i18n="whitelistHint">Allowed entries: mangapark.* (TLD wildcard) or mangapark.org (explicit). Subdomains included.</span>
+                    </p>
+                  </div>
+
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <input id="entryInput" class="Field" type="text" placeholder="e.g. mangapark.* or mangapark.org" data-i18n-placeholder="whitelistPlaceholder" />
+                      <button id="addBtn" type="button" class="Btn secondary" data-i18n="addBtn">Add</button>
+                    </div>
+                    <div id="error" class="ErrorText"></div>
+
+                    <ul id="list" class="List"></ul>
+
+                    <div class="flex items-center justify-between">
+                      <button id="resetBtn" type="button" class="Btn ghost" data-i18n="resetBtn">Reset defaults</button>
+                      <span id="count" class="text-xs text-muted">0</span>
+                    </div>
+
+                    <div class="text-xs text-muted">
+                      <span data-i18n="currentHostLabel">Current host:</span>
+                      <span id="currentHost">-</span><span id="hostAllowed" class="HostAllowed"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            <!-- (removed) legacy hidden translation nodes: duplicates IDs used by visible cards -->
+            </div>
+
+            <!-- Footer + Support (Make parity; real links only — no dead/placeholder URLs) -->
+            <div class="Card">
+              <div class="space-y-3">
+                <div>
+                  <h3 class="mb-1" data-i18n="supportTitle">Support</h3>
+                  <p class="text-xs text-muted" data-i18n="supportDesc">Optional donation to support maintenance.</p>
+                  <button id="supportProjectBtn" type="button" class="Btn ghost fullWidth text-sm" data-i18n="footerSupport">
+                    <span style="display:inline-flex; align-items:center; gap:8px;">
+                      <svg class="Icon IconSm" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                      </svg>
+                      <span data-i18n="footerSupport">Support this project</span>
+                    </span>
+                  </button>
+                </div>
+
+                <div class="border-t"></div>
+
+                <div>
+                  <h3 class="mb-1" data-i18n="footerTitle">Project</h3>
+                  <p class="text-xs text-muted" data-i18n="footerDesc">Suggest features, report issues, follow updates.</p>
+                  <button id="projectWebsiteBtn" type="button" class="Btn ghost fullWidth text-sm" data-i18n="footerWebsite">
+                    <span style="display:inline-flex; align-items:center; gap:8px;">
+                      <svg class="Icon IconSm" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M15 3h6v6"></path>
+                        <path d="M10 14 21 3"></path>
+                        <path d="M21 14v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h7"></path>
+                      </svg>
+                      <span data-i18n="footerWebsite">Project website / feedback</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- (removed) legacy hidden export nodes: duplicated IDs with visible Export screens + legacy nodes below -->
+          </div>
+        </div>
+
+        <!-- SCREEN: EXPORT RUNNING (ExportProgress.tsx) -->
+        <div id="screenExportRunning" class="screen">
+          <div style="padding:16px; padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.10); background: rgba(37,99,235,0.06);">
+            <div class="flex items-start justify-between mb-2">
+              <button id="backToHomeBtn_running" type="button" class="Btn ghost" style="padding-left: 8px; padding-right: 8px; margin-left: -8px; font-size: 13px; color: var(--muted-foreground);" data-i18n="backToHome">Back to Home</button>
+              <button type="button" id="themeToggleBtn_running" class="Btn ghost" style="padding:8px;" data-i18n-aria-label="themeToggleAria" data-i18n-title="themeToggleTitle"><span data-i18n="themeBtn">Theme</span></button>
+            </div>
+            <div>
+              <h1 class="mb-1" data-i18n="exportRunningTitle">Saving Your Library</h1>
+              <p class="text-xs text-muted" data-i18n="exportRunningSubtitle">This usually takes a few minutes</p>
+            </div>
+          </div>
+
+          <div class="px-4 pb-4" style="padding-top: 24px;">
+            <div class="Card">
+              <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 16px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(37,99,235,0.18); background: rgba(37,99,235,0.08);">
+                <div style="width: 10px; height: 10px; border-radius: 999px; background: rgba(37,99,235,0.9);"></div>
+                <span class="text-xs"><span data-i18n="exportStatusLabel">Status:</span> <span style="font-weight: 500; color: rgba(29,78,216,1);" data-i18n="exportRunningStatus">Going through your library...</span></span>
+              </div>
+
+              <div class="flex items-center gap-3 mb-4">
+                <div style="padding: 8px; border-radius: 8px; background: rgba(37,99,235,0.08);">
+                  <div style="width:20px; height:20px; border-radius: 6px; background: rgba(37,99,235,0.9);"></div>
+                </div>
+                <div class="flex-1">
+                  <div class="flex" style="align-items: baseline; gap: 8px; margin-bottom: 2px;">
+                    <span id="runningPercent" style="font-size: 30px; font-weight: 600; color: rgba(37,99,235,1);">0%</span>
+                    <span class="text-sm text-muted" data-i18n="exportRunningDoneLabel">done</span>
+                  </div>
+                  <p class="text-xs text-muted" data-i18n="exportRunningDetail">Looking through your follow list</p>
+                </div>
+              </div>
+
+              <div class="ProgressBar mb-4" aria-label="Progress">
+                <div id="runningProgressFill" class="ProgressFill"></div>
+              </div>
+
+              <div class="bg-gray-50 rounded-md p-3 mb-4">
+                <div class="grid grid-cols-2" style="gap: 16px;">
+                  <div>
+                    <p class="text-xs text-muted mb-1" data-i18n="exportRunningPagesChecked">Pages checked</p>
+                    <p style="font-weight: 600;">
+                      <span id="runningPagesChecked">0</span>
+                      <span class="text-muted" style="font-weight: 400;">
+                        <span data-i18n="exportRunningOf">of</span> <span id="runningPagesTotal">0</span>
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-muted mb-1" data-i18n="exportRunningMangaFound">Manga found</p>
+                    <p style="font-weight: 600; color: rgba(34,197,94,1);" id="runningMangaFound">0</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <button type="button" class="Btn ghost fullWidth text-sm" data-i18n="exportPauseBtn" disabled>Pause</button>
+                <button id="exportCancelBtn" type="button" class="Btn ghost fullWidth text-sm" style="color: rgba(220,38,38,1);" data-i18n="exportCancelBtn">Stop Saving</button>
+              </div>
+            </div>
+
+            <!-- Debug-only: stall recovery (no auto actions; user-triggered) -->
+            <div id="exportStallPanel" class="mt-4" style="display:none; background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.18); border-radius: 8px; padding: 12px;">
+              <p class="text-xs" style="color: rgba(120,53,15,1); line-height: 1.45;">
+                <span data-i18n="exportStallDesc">Debug: Export seems stalled (no progress for a while). You can safely reset and retry.</span>
+              </p>
+              <div class="mt-2">
+                <button id="exportForceResetBtn" type="button" class="Btn secondary fullWidth" style="font-size: 12px;" data-i18n="exportStallResetBtn">Force reset export (debug)</button>
+              </div>
+            </div>
+
+            <div class="mt-4" style="background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.18); border-radius: 8px; padding: 12px;">
+              <p class="text-xs" style="color: rgba(29,78,216,1);">
+                <span data-i18n="exportRunningSafeToClose">Safe to close this window. We'll keep working and let you know when done. Click "Back to Home" anytime to return to the main menu.</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCREEN: EXPORT DONE (ExportComplete.tsx) -->
+        <div id="screenExportDone" class="screen">
+          <div style="padding:16px; padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.10); background: rgba(34,197,94,0.06);">
+            <div class="flex items-start justify-between mb-2">
+              <button id="backToHomeBtn_done" type="button" class="Btn ghost" style="padding-left: 8px; padding-right: 8px; margin-left: -8px; font-size: 13px; color: var(--muted-foreground);" data-i18n="backToHome">Back to Home</button>
+              <button type="button" id="themeToggleBtn_done" class="Btn ghost" style="padding:8px;" data-i18n-aria-label="themeToggleAria" data-i18n-title="themeToggleTitle"><span data-i18n="themeBtn">Theme</span></button>
+            </div>
+            <div>
+              <h1 class="mb-1" data-i18n="exportDoneTitle">All Done!</h1>
+              <p class="text-xs text-muted" data-i18n="exportDoneSubtitle">Your library backup is ready</p>
+            </div>
+          </div>
+
+          <div class="px-4 pb-4" style="padding-top: 24px;">
+            <div class="Card">
+              <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 16px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(34,197,94,0.18); background: rgba(34,197,94,0.08);">
+                <div style="width: 10px; height: 10px; border-radius: 999px; background: rgba(34,197,94,0.9);"></div>
+                <span class="text-xs"><span data-i18n="exportStatusLabel">Status:</span> <span style="font-weight: 500; color: rgba(21,128,61,1);" data-i18n="exportDoneStatus">Everything saved!</span></span>
+              </div>
+
+              <div class="text-center" style="padding: 12px 0; margin-bottom: 16px;">
+                <div style="width: 64px; height: 64px; margin: 0 auto 12px auto; border-radius: 999px; background: rgba(34,197,94,0.08); display:flex; align-items:center; justify-content:center;">
+                  <div style="width: 32px; height: 32px; border-radius: 12px; background: rgba(34,197,94,0.9);"></div>
+                </div>
+
+                <h2 class="mb-2" data-i18n="exportDoneCardTitle">Library Saved Successfully</h2>
+
+                <p class="text-sm text-muted" style="margin-bottom: 4px;" data-i18n="exportDoneCardDesc">Your library backup is complete and ready to download</p>
+
+                <div class="mt-2" style="display:inline-block; padding: 8px 16px; border-radius: 8px; background: rgba(34,197,94,0.08);">
+                  <p class="text-xs text-muted" style="margin-bottom: 2px;" data-i18n="exportDoneTotalLabel">Total manga saved</p>
+                  <p id="doneTotalItems" style="font-size: 24px; font-weight: 600; color: rgba(34,197,94,1);">0</p>
+                </div>
+              </div>
+
+              <div class="space-y-2 mb-4">
+                <div class="flex items-center justify-between bg-gray-50 rounded-md p-3">
+                  <div class="flex items-center gap-2">
+                    <div style="width:16px; height:16px; border-radius: 6px; background: rgba(0,0,0,0.25);"></div>
+                    <span class="text-sm" data-i18n="exportDoneSaveToComputer">Save to your computer</span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2" style="gap: 8px;">
+                  <button id="exportDownloadCsvBtn" type="button" class="Btn secondary" style="font-size: 13px;" data-i18n="exportDownloadCsvBtn">CSV File</button>
+                  <button id="exportDownloadJsonBtn" type="button" class="Btn secondary" style="font-size: 13px;" data-i18n="exportDownloadJsonBtn">JSON File</button>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <button id="openMigrationPanelBtn_done" type="button" class="Btn primary fullWidth" data-i18n="exportDoneOpenMigration">Move to Another Site →</button>
+                <p class="text-xs text-center text-muted" style="padding: 0 8px;" data-i18n="exportDoneBackHint">Or go back to the home screen for more options</p>
+              </div>
+            </div>
+
+            <div class="mt-4" style="background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.18); border-radius: 8px; padding: 12px;">
+              <p class="text-xs" style="color: rgba(29,78,216,1);" data-i18n="exportDoneLocalOnly">All files are on your computer only. Nothing was uploaded anywhere.</p>
+            </div>
+
+            <div class="mt-4">
+              <button id="exportClearBtn" type="button" class="Btn ghost fullWidth" style="font-size: 11px; color: rgba(220,38,38,1);" data-i18n="exportClearBtn">Delete saved data</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCREEN: EXPORT ERROR (ExportError.tsx) -->
+        <div id="screenExportError" class="screen">
+          <div style="padding:16px; padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.10); background: rgba(245,158,11,0.10);">
+            <div class="flex items-start justify-between mb-2">
+              <button id="backToHomeBtn_error" type="button" class="Btn ghost" style="padding-left: 8px; padding-right: 8px; margin-left: -8px; font-size: 13px; color: var(--muted-foreground);" data-i18n="backToHome">Back to Home</button>
+              <button type="button" id="themeToggleBtn_error" class="Btn ghost" style="padding:8px;" data-i18n-aria-label="themeToggleAria" data-i18n-title="themeToggleTitle"><span data-i18n="themeBtn">Theme</span></button>
+            </div>
+            <div>
+              <h1 class="mb-1" data-i18n="exportErrorHeaderTitle">Save Paused</h1>
+              <p class="text-xs text-muted" data-i18n="exportErrorHeaderSubtitle">No worries, we can try again</p>
+            </div>
+          </div>
+
+          <div class="px-4 pb-4" style="padding-top: 24px;">
+            <div class="Card">
+              <div class="text-center" style="padding: 12px 0; margin-bottom: 16px;">
+                <div style="width: 64px; height: 64px; margin: 0 auto 12px auto; border-radius: 999px; background: rgba(245,158,11,0.10); display:flex; align-items:center; justify-content:center;">
+                  <div style="width: 32px; height: 32px; border-radius: 12px; background: rgba(245,158,11,0.9);"></div>
+                </div>
+
+                <h2 id="exportErrorTitle" class="mb-2" data-i18n="exportErrorDefaultTitle">Can't Reach MangaPark</h2>
+
+                <p id="exportErrorDesc" class="text-sm text-muted" style="margin-bottom: 12px;" data-i18n="exportErrorDefaultDesc">We're having trouble connecting. This usually fixes itself quickly.</p>
+              </div>
+
+              <div style="background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.18); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                <p class="text-xs" style="font-weight: 500; color: rgba(120,53,15,1); margin-bottom: 4px;" data-i18n="exportErrorQuickFix">Quick fix:</p>
+                <p id="exportErrorSolution" class="text-xs" style="color: rgba(120,53,15,1);" data-i18n="exportErrorDefaultSolution">Check your internet, then try again in a moment.</p>
+              </div>
+
+              <div class="space-y-2">
+                <button id="exportRetryBtn" type="button" class="Btn primary fullWidth" data-i18n="exportRetryBtn">Try Again</button>
+                <button id="exportCancelErrorBtn" type="button" class="Btn ghost fullWidth text-sm" data-i18n="exportCancelErrorBtn">Cancel Save</button>
+              </div>
+
+              <!-- Debug-only: local diagnostic report (no auto-display, user-triggered copy) -->
+              <div id="exportDiagnosticPanel" style="display:none; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(0,0,0,0.10);">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-bottom: 8px;">
+                  <h3 style="margin:0; font-size: 12px; font-weight: 600; color: var(--muted-foreground);" data-i18n="exportDiagTitle">Last export issue (debug)</h3>
+                </div>
+                <p class="text-xs text-muted" style="margin: 0 0 10px 0; line-height: 1.45;" data-i18n="exportDiagDesc">
+                  Diagnostic information for troubleshooting. No data is sent anywhere.
+                </p>
+                <button id="exportCopyDiagnosticBtn" type="button" class="Btn secondary fullWidth" style="font-size: 12px;" data-i18n="exportDiagCopyBtn">Copy diagnostic report</button>
+                <button id="exportClearDiagnosticBtn" type="button" class="Btn ghost fullWidth text-sm" style="margin-top: 8px;" data-i18n="exportDiagClearBtn">Clear diagnostic report (debug)</button>
+                <button id="exportForceResetBtn_error" type="button" class="Btn ghost fullWidth text-sm" style="margin-top: 6px; color: rgba(220,38,38,1);" data-i18n="exportStallResetBtn">Force reset export (debug)</button>
+                <p id="exportCopyDiagnosticStatus" class="text-xs text-muted" style="display:none; margin: 8px 0 0 0;" data-i18n="exportDiagCopied">Copied to clipboard.</p>
+              </div>
+
+          <div id="exportError" class="sr-only"></div>
+            </div>
+
+            <div class="mt-4" style="background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.18); border-radius: 8px; padding: 12px;">
+              <p class="text-xs" style="color: rgba(29,78,216,1);" data-i18n="exportErrorProgressSaved">
+                Your progress is saved. When ready, we'll pick up where we left off. Click "Back to Home" to return to the main menu.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden legacy nodes to satisfy existing popup.js without refactor -->
+        <div class="sr-only" aria-hidden="true">
+          <span id="exportStatus"></span>
+          <span id="exportProgress"></span>
+          <span id="exportPercent"></span>
+          <span id="exportStatusDot"></span>
+          <div id="exportProgressFill"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
+

@@ -1,0 +1,17 @@
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# OS / editor
+.idea/
+.vscode/
+
+# Coverage / test artifacts
+coverage/
+.nyc_output/
+
+# Build artifacts (if ever added)
+dist/
+build/
